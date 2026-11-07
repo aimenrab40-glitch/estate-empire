@@ -3,5 +3,11 @@ dist
 .pgdata
 .tools
 .git
+.env
+.env.*
+!.env.example
 *.zip
 *.log
+nul*.txt
+.freebuff
+hf-space

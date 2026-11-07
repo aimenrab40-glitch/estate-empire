@@ -262,10 +262,15 @@ export default function Home() {
           />
 
           <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">
-            Choose your token
+            Your picture & token
           </label>
           <div className="mb-4">
-            <AvatarPicker value={profile.avatar} onChange={(avatar) => saveProfileFields({ avatar })} />
+            <AvatarPicker
+              value={profile.avatar}
+              image={profile.image}
+              onChange={(avatar) => saveProfileFields({ avatar })}
+              onImageChange={(image) => saveProfileFields({ image })}
+            />
           </div>
 
           <div className="mb-4 grid grid-cols-2 gap-3">

@@ -41,6 +41,8 @@ interface Props {
   privateProfile: PrivateProfile | null;
   turnIndex?: number;
   speaking?: Set<string>;
+  /** Player ids muted/deafened (real state broadcast over voice signaling). */
+  mutedPeers?: Set<string>;
   startedAt?: number | null;
   phase?: string;
   onLeave?: () => void;
@@ -1067,10 +1069,36 @@ function makeCharacter(seat: number) {
   tag.renderOrder = 998;
   g.add(tag);
 
+  /* Discord-style voice indicator: green ring around the head while the real
+     WebRTC audio is detected, plus a small mic badge (green mic while
+     speaking, red mic-off while muted). Hidden otherwise. */
+  const voiceRingCanvas = document.createElement('canvas');
+  voiceRingCanvas.width = 256; voiceRingCanvas.height = 256;
+  const voiceRingTex = new THREE.CanvasTexture(voiceRingCanvas);
+  voiceRingTex.colorSpace = THREE.SRGBColorSpace;
+  const voiceRing = new THREE.Sprite(new THREE.SpriteMaterial({ map: voiceRingTex, transparent: true, depthTest: false }));
+  voiceRing.scale.set(0.34, 0.34, 1);
+  voiceRing.position.y = 1.46;
+  voiceRing.visible = false;
+  voiceRing.renderOrder = 1000;
+  g.add(voiceRing);
+
+  const voiceBadgeCanvas = document.createElement('canvas');
+  voiceBadgeCanvas.width = 128; voiceBadgeCanvas.height = 128;
+  const voiceBadgeTex = new THREE.CanvasTexture(voiceBadgeCanvas);
+  voiceBadgeTex.colorSpace = THREE.SRGBColorSpace;
+  const voiceBadge = new THREE.Sprite(new THREE.SpriteMaterial({ map: voiceBadgeTex, transparent: true, depthTest: false }));
+  voiceBadge.scale.set(0.17, 0.17, 1);
+  voiceBadge.position.set(0.19, 1.31, 0.04);
+  voiceBadge.visible = false;
+  voiceBadge.renderOrder = 1001;
+  g.add(voiceBadge);
+
   g.userData = {
     head: headG, torso: torsoMesh, torsoG, ring, jawG, lids,
     armPivots, elbowPivots,
     label, labelTex, labelCanvas, tag, tagTex, tagCanvas,
+    voiceRing, voiceRingTex, voiceRingCanvas, voiceBadge, voiceBadgeTex, voiceBadgeCanvas, voiceKey: 'off',
     tagKey: '', arche: look.arche,
     blinkNext: 1.5 + Math.random() * 4, lidClose: 0,
     baseHeadY: 0.8, baseTorsoY: 0.64,
@@ -1142,13 +1170,53 @@ function drawNameTag(
   tex.needsUpdate = true;
 }
 
-export default function Mafia3DTable({ players, meId, privateProfile, turnIndex = 0, speaking = new Set(), startedAt = null, phase = 'lobby', onLeave }: Props) {
+type VoiceVisual = 'speaking' | 'muted' | 'off';
+
+/** Discord ring: thick green circle while speaking, red while muted. */
+function drawVoiceRing(canvas: HTMLCanvasElement, tex: THREE.Texture, state: VoiceVisual) {
+  const ctx = canvas.getContext('2d')!;
+  ctx.clearRect(0, 0, 256, 256);
+  if (state !== 'off') {
+    ctx.strokeStyle = state === 'speaking' ? '#23a55a' : '#f23f43';
+    ctx.lineWidth = 16;
+    ctx.shadowColor = ctx.strokeStyle;
+    ctx.shadowBlur = 18;
+    ctx.beginPath(); ctx.arc(128, 128, 104, 0, Math.PI * 2); ctx.stroke();
+  }
+  tex.needsUpdate = true;
+}
+
+/** Small badge: mic (green disc) while speaking, mic-off (red disc) while muted. */
+function drawVoiceBadge(canvas: HTMLCanvasElement, tex: THREE.Texture, state: VoiceVisual) {
+  const ctx = canvas.getContext('2d')!;
+  ctx.clearRect(0, 0, 128, 128);
+  if (state === 'off') { tex.needsUpdate = true; return; }
+  const speaking = state === 'speaking';
+  ctx.fillStyle = speaking ? '#23a55a' : '#f23f43';
+  ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+  ctx.lineWidth = 6;
+  ctx.beginPath(); ctx.arc(64, 64, 54, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  // mic body
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath(); ctx.roundRect(50, 22, 28, 52, 14); ctx.fill();
+  // cradle + stand
+  ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 9; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.arc(64, 62, 26, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(64, 88); ctx.lineTo(64, 104); ctx.stroke();
+  if (!speaking) {
+    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 10;
+    ctx.beginPath(); ctx.moveTo(26, 26); ctx.lineTo(102, 102); ctx.stroke();
+  }
+  tex.needsUpdate = true;
+}
+
+export default function Mafia3DTable({ players, meId, privateProfile, turnIndex = 0, speaking = new Set(), mutedPeers = new Set(), startedAt = null, phase = 'lobby', onLeave }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
   const [webglFailed, setWebglFailed] = useState(false);
   const [view, setView] = useState<'overview' | 'mine' | 'top'>('overview');
   const [timer, setTimer] = useState('--:--');
-  const stateRef = useRef({ players, meId, privateProfile, turnIndex, speaking });
-  stateRef.current = { players, meId, privateProfile, turnIndex, speaking };
+  const stateRef = useRef({ players, meId, privateProfile, turnIndex, speaking, mutedPeers });
+  stateRef.current = { players, meId, privateProfile, turnIndex, speaking, mutedPeers };
   const viewRef = useRef(view);
   viewRef.current = view;
 
@@ -1508,6 +1576,9 @@ export default function Mafia3DTable({ players, meId, privateProfile, turnIndex 
           // it disappears the moment a real player takes the seat)
           g.visible = true;
           ring.visible = false;
+          if (g.userData.voiceRing) g.userData.voiceRing.visible = false;
+          if (g.userData.voiceBadge) g.userData.voiceBadge.visible = false;
+          g.userData.voiceKey = 'off';
           torso.material.color.setHex(0x3f3f46);
           const key = 'BOT';
           if (g.userData.tagKey !== key) {
@@ -1561,6 +1632,25 @@ export default function Mafia3DTable({ players, meId, privateProfile, turnIndex 
         if (!torsoG || !headG || !ring || !jawG || !lids || !armPivots || !elbowPivots) return;
         if (!armPivots[0] || !armPivots[1] || !elbowPivots[0] || !elbowPivots[1]) return;
         const talking = stateRef.current.speaking?.has(stateRef.current.players[seat]?.id ?? '') ?? false;
+        // Voice indicator (Discord-style): green ring + mic while the real
+        // WebRTC audio is detected, red ring + mic-off while muted, hidden
+        // the moment speech stops. Updated every frame from stateRef.
+        {
+          const pid = stateRef.current.players[seat]?.id ?? '';
+          const isMuted = !!pid && (stateRef.current.mutedPeers?.has(pid) ?? false);
+          const vState: VoiceVisual = talking && !isMuted ? 'speaking' : isMuted ? 'muted' : 'off';
+          if (u.voiceKey !== vState) {
+            u.voiceKey = vState;
+            if (u.voiceRing && u.voiceRingTex && u.voiceRingCanvas) {
+              u.voiceRing.visible = vState !== 'off';
+              if (vState !== 'off') drawVoiceRing(u.voiceRingCanvas, u.voiceRingTex, vState);
+            }
+            if (u.voiceBadge && u.voiceBadgeTex && u.voiceBadgeCanvas) {
+              u.voiceBadge.visible = vState !== 'off';
+              drawVoiceBadge(u.voiceBadgeCanvas, u.voiceBadgeTex, vState);
+            }
+          }
+        }
         const amp = talking ? 2.4 : 1; // speaking players bob more, like real talkers
         const ph = t * (1.1 + seat * 0.07) + seat;
 
@@ -1666,7 +1756,7 @@ export default function Mafia3DTable({ players, meId, privateProfile, turnIndex 
   if (webglFailed) {
     return (
       <div className="mafia-3d-wrap">
-        <TableSeats players={players} meId={meId} privateProfile={privateProfile} turnIndex={turnIndex} speaking={speaking} />
+        <TableSeats players={players} meId={meId} privateProfile={privateProfile} turnIndex={turnIndex} speaking={speaking} mutedPeers={mutedPeers} />
         <p className="mafia-3d-note">3D unavailable on this device — showing the classic top-down table.</p>
       </div>
     );

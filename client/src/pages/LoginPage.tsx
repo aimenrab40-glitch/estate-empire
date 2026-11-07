@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { fetchAuthConfig } from '../lib/auth';
+import { ensureGuest, fetchAuthConfig } from '../lib/auth';
 
 /**
  * SUPER NOVA sign-in screen. Accounts are OAuth-based (Google required,
@@ -77,6 +77,18 @@ export default function LoginPage() {
           <span>Link Discord (optional)</span>
         </button>
 
+        <button
+          type="button"
+          className="btn btn-ghost w-full py-3 text-base"
+          onClick={() => {
+            ensureGuest();
+            window.location.reload();
+          }}
+        >
+          <span className="text-lg">🧑‍🤝‍🧑</span>
+          <span>Play as Guest</span>
+        </button>
+
         {!cfg.google && !cfg.discord && (
           <p className="rounded-xl border border-amber-500/40 bg-amber-950/20 px-3 py-2 text-center text-[11px] leading-relaxed text-amber-200">
             يبدو أن مفاتيح Google OAuth لم تُضبط على الخادم بعد. اطلب من إدارة
@@ -94,9 +106,9 @@ export default function LoginPage() {
           <span>📱 Phone + desktop</span>
         </div>
         <div className="text-center text-[10px] text-slate-600">
-          {cfg.requireAuth
-            ? 'Your Google profile picture travels with you into every room.'
-            : 'Guest testing mode is on (local dev).'}
+          {cfg.google
+            ? 'Your Google profile picture travels with you into every room — or play instantly as a guest.'
+            : 'No account needed: play as a guest, or sign in with Google when it is configured.'}
         </div>
       </div>
 

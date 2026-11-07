@@ -54,6 +54,7 @@ interface SessionApi {
   logout: () => Promise<void>;
   createRoom: (opts?: { roomName?: string }) => Promise<string | null>;
   joinRoom: (code: string) => Promise<string | null>;
+  renameRoom: (name: string) => Promise<boolean>;
   leaveRoom: () => Promise<void>;
   start: () => Promise<boolean>;
   nightAction: (targetId: string | null) => Promise<boolean>;
@@ -373,6 +374,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setChat([]);
   }, [emit]);
 
+  const renameRoom = useCallback(
+    async (name: string) => {
+      if (!name.trim()) return false;
+      return run(C2S.rename, { name: name.trim().slice(0, 24) });
+    },
+    [run],
+  );
+
   const action = useCallback(
     (event: string, payload?: unknown) => run(event, { ...(payload ?? {}), code: undefined, playerId: undefined }),
     [run],
@@ -416,6 +425,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     logout,
     createRoom,
     joinRoom,
+    renameRoom,
     leaveRoom,
     start,
     nightAction,

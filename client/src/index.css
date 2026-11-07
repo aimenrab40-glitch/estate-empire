@@ -647,6 +647,23 @@
   top: -8px;
   right: -6px;
 }
+/* Discord voice badges on the avatar: green mic while speaking, red mute */
+.chair-mic, .chair-mute {
+  position: absolute;
+  bottom: -6px;
+  right: -8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  font-size: 11px;
+  border-radius: 999px;
+  border: 2px solid rgba(0, 0, 0, 0.6);
+  z-index: 4;
+}
+.chair-mic { background: #23a55a; }
+.chair-mute { background: #f23f43; }
 
 /* Private overhead label — exists ONLY inside the owner's own ChairSeat instance.
    Rendered locally from the unicast privateProfile. Never in RoomState. */

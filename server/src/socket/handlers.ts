@@ -37,13 +37,21 @@ const socketByPlayer = new Map<string, string>();
 export function registerSocketHandlers(io: Server) {
   const phaseTimers = new Map<string, ReturnType<typeof setTimeout>>();
   const voiceParticipants = new Map<string, Set<string>>();
+  /** Last broadcast mute/deafen state per voice participant (for the red mic badge). */
+  const voiceStates = new Map<string, Map<string, { muted: boolean; deafened: boolean }>>();
 
   const leaveVoice = (code: string, playerId: string) => {
     const set = voiceParticipants.get(code);
     if (!set || !set.has(playerId)) return;
     set.delete(playerId);
     if (set.size === 0) voiceParticipants.delete(code);
+    const states = voiceStates.get(code);
+    if (states) {
+      states.delete(playerId);
+      if (states.size === 0) voiceStates.delete(code);
+    }
     io.to(roomKey(code)).emit(S2C.voicePeerLeft, { peerId: playerId });
+    io.to(roomKey(code)).emit(S2C.voiceState, { peerId: playerId, muted: false, deafened: false });
   };
 
   const broadcast = (room: Room) => {
@@ -299,6 +307,23 @@ export function registerSocketHandlers(io: Server) {
       }
     });
 
+    socket.on(C2S.rename, async (payload: { name?: string }, ack?: Ack) => {
+      try {
+        const room = currentRoom();
+        if (!room || !myId) throw new GameError('Room not found.');
+        if (room.hostId !== myId) throw new GameError('Only the host can rename the table.');
+        const name = String(payload?.name ?? '').replace(/\s+/g, ' ').trim().slice(0, 24);
+        if (!name) throw new GameError('Name cannot be empty.');
+        room.name = name;
+        const { persistRoom } = await import('../db/repo.js');
+        await persistRoom(room.code, room.name, room.maxPlayers, room.hostId, room.status);
+        broadcast(room);
+        ack?.({ ok: true });
+      } catch (err) {
+        fail(socket, ack, err);
+      }
+    });
+
     socket.on(C2S.chat, (payload: { text?: string }) => {
       const room = currentRoom();
       if (!room || !myId) return;
@@ -325,7 +350,25 @@ export function registerSocketHandlers(io: Server) {
       const others = [...set];
       set.add(playerId);
       io.to(roomKey(code)).emit(S2C.voicePeerJoined, { peerId: playerId });
+      // Send the joiner the current mute/deafen states so the red mic badges
+      // are correct from the first second (Discord-style presence).
+      const states = voiceStates.get(code);
+      socket.emit(S2C.voiceStates, {
+        states: states ? [...states.entries()].map(([id, s]) => ({ peerId: id, ...s })) : [],
+      });
       ack?.({ ok: true, data: others });
+    });
+
+    socket.on(C2S.voiceState, (payload: { muted?: boolean; deafened?: boolean }) => {
+      if (!myCode || !myId) return;
+      const entry = { muted: Boolean(payload?.muted), deafened: Boolean(payload?.deafened) };
+      let states = voiceStates.get(myCode);
+      if (!states) {
+        states = new Map();
+        voiceStates.set(myCode, states);
+      }
+      states.set(myId, entry);
+      io.to(roomKey(myCode)).emit(S2C.voiceState, { peerId: myId, ...entry });
     });
 
     socket.on(C2S.voiceLeave, (_payload: unknown, ack?: Ack) => {

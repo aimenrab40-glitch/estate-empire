@@ -1,37 +1,36 @@
-# Estate Empire — Deployment Guide (Render + Neon)
+# SUPER NOVA — Mafia Online · Deployment Guide (100% FREE, no credit card)
 
-This turns Estate Empire into a real, always-on online service reachable at a
-permanent public URL. Nothing runs on your personal PC.
-
-## What was built
-- **Server** (Node + Express + Socket.IO + PostgreSQL) — authoritative game
-  engine, rooms, chat, persistence, auto-recovery.
-- **Client** (React + Tailwind + Vite) — Richup.io-style board, animated dice,
-  per-player tokens, real-time sync.
-- **Database** — Neon PostgreSQL (rooms, players, game snapshots, match
-  history).
-
-## Requirements
-- A **GitHub** account (push this repo there).
-- A **Render** account (render.com) — hosts the web service.
-- A **Neon** account (neon.tech) — provides the always-on PostgreSQL.
-
-Neon has a generous free tier and gives you a single `DATABASE_URL` connection
-string.
+This turns SUPER NOVA into a real public online service: a permanent URL anyone
+can open from any country, on iPhone, Android or desktop — while **your PC stays
+off**. Everything below uses free tiers only. No card is ever requested.
 
 ---
 
-## Step 1 — Create the Neon database
+## Architecture (what you're deploying)
 
-1. Sign in to Neon and create a project (e.g. `estate-empire`).
-2. In the project dashboard, copy the connection string under
-   **Connect** → **Connection string** → **Node.js**. It looks like:
+| Piece | Where it runs | Cost |
+|---|---|---|
+| Game server + website (Node/Express + Socket.IO + React) | **Render** Free Web Service (Docker) | Free* |
+| Database (accounts, rooms, game snapshots) | **Neon** PostgreSQL | Free |
+| Voice chat (WebRTC) | Browser-to-browser (peer-to-peer); server only relays signaling | Free |
+| Google sign-in (optional) | Google Cloud Console | Free |
 
+\* Render's free tier **sleeps after ~15 minutes** without traffic and the first
+visit after sleep takes ~30–60 s to wake. Rooms, accounts and progress are in
+Neon, so a wake-up never loses anything. See "Keep it awake for free" below.
+
+---
+
+## Step 1 — Create the free Neon database (2 minutes)
+
+1. Sign up at <https://neon.tech> (no card) → **New project** → name it `super-nova`.
+2. Neon creates a database. From the dashboard copy the **pooled** connection
+   string (**Connect → Connection string → pooled**), it looks like:
    ```
-   postgres://<user>:<password>@ep-<id>.<region>.aws.neon.tech:5432/<db>?sslmode=require
+   postgresql://USER:PASSWORD@ep-xxxx-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require
    ```
-
-3. Save it — you'll paste it into Render as `DATABASE_URL`.
+3. Save it — you will paste it into Render in Step 3. The app creates all
+   tables automatically on first boot; you run no SQL yourself.
 
 ---
 
@@ -41,83 +40,152 @@ string.
 cd C:\Users\ADAM\Desktop\HHHH
 git init
 git add -A
-git commit -m "Estate Empire — online multiplayer board game"
-git remote add origin https://github.com/<you>/estate-empire.git
+git commit -m "SUPER NOVA Mafia — online multiplayer"
+git remote add origin https://github.com/<you>/super-nova-mafia.git
 git branch -M main
 git push -u origin main
 ```
 
+(`.gitignore` + `.dockerignore` already exclude `node_modules/`, `dist/`,
+`.pgdata/`, `.env`, zips and logs — no secrets or binaries are committed.)
+
 ---
 
-## Step 3 — Deploy the web service on Render
+## Step 3 — Deploy on Render (free)
 
-1. Log in to Render and click **New → Web Service**.
-2. Connect your GitHub repo `estate-empire`.
-3. Render detects `render.yaml`. Use these settings:
-   - **Runtime:** Node
-   - **Build command:** `npm install && npm run build`
-   - **Start command:** `node server/dist/server/src/index.js`
-   - **Instance type:** Starter or higher (the free tier sleeps after inactivity;
-     a paid instance stays awake **24/7**).
-4. Add environment variables:
-   - `DATABASE_URL` = your Neon connection string (from Step 1)
-   - `NODE_ENV` = `production`
-   - `REQUIRE_DB` = `1`
-   - `PORT` = `4000`
-5. Click **Deploy**.
+1. Sign up at <https://render.com> (no card) → **New → Blueprint** → connect the
+   GitHub repo. Render reads [`render.yaml`](./render.yaml) and creates the
+   `super-nova-mafia` Docker web service on the **free** plan.
+2. In the service dashboard → **Environment**, add these variables:
 
-Render builds the client + server, starts the server, and provisions a public
-URL such as:
+   | Key | Value |
+   | --- | --- |
+   | `DATABASE_URL` | your Neon pooled string from Step 1 (secret) |
+   | `PUBLIC_ORIGIN` | `https://super-nova-mafia.onrender.com` (your real URL — see below) |
+   | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | *only after Step 5 — optional* |
 
+3. Click **Deploy**. Render builds the Docker image (client + server) and starts
+   it. In the logs you should see:
+   ```
+   [db] connected to external PostgreSQL at ep-…neon.tech…
+   🎲 SUPER NOVA Mafia server is up
+   http] serving built client from …
+   ```
+4. Your public URL is `https://super-nova-mafia.onrender.com` (Render may add a
+   suffix). **Share this link with friends** — anyone in the world can open it.
+
+> **Important:** if `DATABASE_URL` is missing, the server *refuses to start*
+> (loud error, no silent in-memory fallback) — that is by design, so production
+> data can never silently vanish.
+
+---
+
+## Step 4 — Verify the live service (2 minutes)
+
+1. Open `https://<your-service>.onrender.com/api/health` → expect `"db":"external"`.
+2. Open the game URL in **two browsers** (or phone + PC):
+   - **Play as Guest** works immediately (no account needed), or sign in with
+     Google if you finished Step 5.
+   - Window A: create a room → copy the invite code/link.
+   - Window B: join with the code → host clicks **Start game**.
+3. Test **voice**: click the 🎤 mic button in the bottom voice bar, allow the
+   microphone, talk — the other player hears you and the **green speaking ring**
+   appears above your 3D character. Mute → the ring turns **red**.
+4. Close one window, reopen it → you rejoin your seat; rooms survive restarts
+   because they are restored from Neon.
+
+---
+
+## Step 5 — Enable Google sign-in (optional, free, ~5 minutes)
+
+Guests play with or without this step. Google sign-in adds a stable identity and
+your profile picture in every room.
+
+1. Go to <https://console.cloud.google.com> → create a project (e.g. `super-nova`).
+2. **APIs & Services → OAuth consent screen** → External → fill app name
+   (`SUPER NOVA Mafia`) + your email → Save. (No verification needed for
+   basic `openid profile email` scopes.)
+3. **APIs & Services → Credentials → Create Credentials → OAuth client ID** →
+   application type **Web application**, name it `SUPER NOVA Web`.
+4. Under **Authorized redirect URIs** add exactly:
+   ```
+   https://<your-service>.onrender.com/auth/google/callback
+   ```
+   (Copy/paste it — Google rejects the login with `redirect_uri_mismatch` if it
+   differs by even one character.)
+5. Copy the **Client ID** and **Client secret** → in Render → Environment add
+   `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` → **Deploy** again.
+6. Test: open the game → **Continue with Google** → sign in → your name/photo
+   appear in the room. Guests still work alongside Google accounts.
+
+> Discord sign-in works the same way (discord.com/developers → redirect URI
+> `https://<your-service>.onrender.com/auth/discord/callback`).
+
+---
+
+## Keep it awake for free (optional)
+
+Render Free sleeps after ~15 min idle; the next visitor waits ~30–60 s for the
+cold start, then everything works normally (rooms are restored from Neon).
+
+To avoid the sleep entirely, point a free uptime pinger at your health endpoint
+every 5 minutes — e.g. <https://cron-job.org> or UptimeRobot (free tier):
 ```
-https://estate-empire-xxxx.onrender.com
+GET https://<your-service>.onrender.com/api/health   every 5 minutes
 ```
-
-That URL is permanent and anyone can open it to create or join rooms — your PC
-does not need to be on.
+No account/card for the pinger either way.
 
 ---
 
-## Step 4 — Verify the live service
+## Alternative host: Hugging Face Spaces (also free, no card)
 
-1. Open the Render URL in two browser windows.
-2. Window A: create a room → get the invite code/link.
-3. Window B: join with the code.
-4. Window A (host): click **Start game**.
-5. Roll dice, buy properties, chat — positions sync in real time across both
-   windows.
-6. Refresh/close one window and reopen it with the same session — the player
-   reconnects to the in-progress game (reconnect + PostgreSQL restore).
-
----
-
-## How the requirements are met
-
-| # | Requirement | Implementation |
-|---|-------------|----------------|
-| 1 | Deploy backend to cloud | Render Web Service (`render.yaml`, `Dockerfile`) |
-| 2 | Server runs continuously | Paid Render instance (never sleeps) + graceful SIGTERM shutdown |
-| 3 | Create/join rooms anytime | REST + Socket.IO, room codes, invite links |
-| 4 | Rooms stay active while connected | Socket.IO rooms, server-authoritative state |
-| 5 | Save progress in PostgreSQL | Neon via `DATABASE_URL`; rooms/players/snapshots/history persisted |
-| 6 | Disconnect → reconnect & continue | Socket.IO auto-reconnect + server rehydrates room from DB after restart |
-| 7 | Real-time sync | Socket.IO broadcasts state on every action |
-| 8 | Auto recovery + error handling | DB auto-migrate on boot, graceful shutdown, error toasts, no silent memory fallback in prod |
-| 9 | Your PC doesn't stay on | Runs on Render's servers |
-| 10 | Permanent URL | Render gives a public `*.onrender.com` URL |
+1. Create a free account at <https://huggingface.co>.
+2. **New Space** → name `super-nova-mafia` → SDK **Docker**.
+3. Upload the two files from the [`hf-space/`](./hf-space) folder to the Space
+   root: `Dockerfile` and `README.md` (the README carries the Space metadata).
+4. Space **Settings → Variables and secrets** → `DATABASE_URL` (Neon string),
+   `PUBLIC_ORIGIN` (the `*.hf.space` URL), optionally the Google keys.
+5. The Space builds and serves the game at
+   `https://<you>-super-nova-mafia.hf.space`. Free Spaces sleep after long
+   inactivity (48 h) and wake on the next visit.
 
 ---
 
-## Production safety (no silent memory fallback)
+## Voice chat & mobile notes
 
-The server **refuses to start** in production unless a PostgreSQL is reachable
-(`REQUIRE_DB=1` / `DATABASE_URL` set). There is no silent in-memory fallback:
-rooms and matches always survive a restart because they are restored from the
-database.
+- **HTTPS is required for the microphone** — both Render and HF Spaces give you
+  free HTTPS certificates, so voice works on iPhone/Android/desktop browsers
+  (Chrome, Edge, Safari, Firefox). On iOS, tap the mic button once and allow
+  the permission; audio starts after that tap.
+- Audio is **peer-to-peer WebRTC**: the server only relays tiny signaling
+  messages, so voice costs nothing and stays fast even on the free tier.
+- If a player is behind a very strict mobile/corporate NAT and STUN alone
+  fails, point the client at a free TURN server with `VITE_TURN_URL`,
+  `VITE_TURN_USER`, `VITE_TURN_PASS` **at build time** (Dockerfile build arg /
+  Render build env), or extend `ICE_SERVERS` in `client/src/lib/voice.ts`.
+- The layout is responsive (touch targets, safe-area insets, adaptive 3D
+  canvas) for phones in portrait and landscape.
 
-## Files added for deployment
+---
 
-- `render.yaml` — Render blueprint
-- `Dockerfile` — alternative container build (any host)
-- `.env.example` — environment variable template
-- `DEPLOY.md` — this guide
+## Troubleshooting
+
+| Symptom | Cause & fix |
+|---|---|
+| Server crashes: "Production requires a reachable PostgreSQL" | `DATABASE_URL` missing/wrong — set the Neon pooled string in Render env and redeploy. |
+| `redirect_uri_mismatch` on Google login | The URI registered in Google Console must be byte-identical to `https://<your-service>/auth/google/callback`. Set `PUBLIC_ORIGIN` too. |
+| First visit is very slow (~1 min) | Free tier cold start after sleep — normal. Use the keep-alive pinger above, or just wait and reload. |
+| Mic doesn't work / no prompt | Open the game over **https** (not a LAN `http://` IP) and allow mic permission in the browser. |
+| Two players can't hear each other on some networks | Add a TURN server (`VITE_TURN_URL`…) as described above. |
+| Room disappeared after redeploy | Should not happen (Neon-backed) — check `/api/health` shows `"db":"external"`. |
+
+---
+
+## What was checked before delivery
+
+- `npm run typecheck` ✅ · `npm run build` (client + server) ✅
+- Production server boots and serves the built client + `/api/health` on one origin ✅
+- Guest play works **with and without** Google keys; Google OAuth redirect URI
+  honors `GOOGLE_REDIRECT_URI` / `PUBLIC_ORIGIN` ✅
+- `.dockerignore` excludes `.env`, `.pgdata`, `node_modules`, `dist`, zips ✅
+- Rooms/accounts persist in PostgreSQL and unfinished rooms are restored on boot ✅

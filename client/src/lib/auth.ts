@@ -37,10 +37,11 @@ export async function fetchMe(): Promise<AuthUser | null> {
 export async function fetchAuthConfig(): Promise<{ google: boolean; discord: boolean; requireAuth: boolean }> {
   try {
     const res = await fetch('/auth/config');
-    if (!res.ok) return { google: false, discord: false, requireAuth: true };
+    // Guests always play — a failed config fetch must never lock anyone out.
+    if (!res.ok) return { google: false, discord: false, requireAuth: false };
     return (await res.json()) as { google: boolean; discord: boolean; requireAuth: boolean };
   } catch {
-    return { google: false, discord: false, requireAuth: true };
+    return { google: false, discord: false, requireAuth: false };
   }
 }
 

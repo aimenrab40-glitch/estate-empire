@@ -1,10 +1,9 @@
-# Estate Empire — Render Blueprint (Docker)
+# SUPER NOVA Mafia — Render Blueprint (Docker, FREE tier — no credit card)
 # Render → New → Blueprint → point at this repo.
-# You still set DATABASE_URL (Neon pooled connection string) in the dashboard;
-# it is intentionally not stored here (sync: false).
+# Secrets are set manually in the dashboard (sync: false) — never stored here.
 services:
   - type: web
-    name: estate-empire
+    name: super-nova-mafia
     runtime: docker
     plan: free
     healthCheckPath: /api/health
@@ -24,3 +23,23 @@ services:
       # postgresql://USER:PASSWORD@ep-xxxx-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require
       - key: DATABASE_URL
         sync: false # set manually in the dashboard (secret)
+      # Public URL of this service, e.g. https://super-nova-mafia.onrender.com
+      # Used for OAuth redirect URIs when the Host header differs.
+      - key: PUBLIC_ORIGIN
+        sync: false
+      # Google OAuth (optional — guests play without it). Set after creating
+      # credentials at console.cloud.google.com; the redirect URI to register
+      # is  https://<your-service>.onrender.com/auth/google/callback
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        sync: false
+      # Discord OAuth (optional)
+      - key: DISCORD_CLIENT_ID
+        sync: false
+      - key: DISCORD_CLIENT_SECRET
+        sync: false
+      - key: DISCORD_REDIRECT_URI
+        sync: false

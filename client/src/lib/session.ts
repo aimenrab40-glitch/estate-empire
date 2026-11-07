@@ -31,8 +31,12 @@ export function loadAuth(): LinkedAuth | null {
 }
 
 export function saveAuth(auth: LinkedAuth | null) {
-  if (!auth) localStorage.removeItem(AUTH_KEY);
-  else localStorage.setItem(AUTH_KEY, JSON.stringify(auth));
+  try {
+    if (!auth) localStorage.removeItem(AUTH_KEY);
+    else localStorage.setItem(AUTH_KEY, JSON.stringify(auth));
+  } catch {
+    /* storage unavailable (private mode / sandbox) — play continues in-memory */
+  }
 }
 
 export function loadSession(): RoomSession | null {
@@ -48,11 +52,19 @@ export function loadSession(): RoomSession | null {
 }
 
 export function saveSession(session: RoomSession) {
-  localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  try {
+    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  } catch {
+    /* ignore */
+  }
 }
 
 export function clearSession() {
-  localStorage.removeItem(SESSION_KEY);
+  try {
+    localStorage.removeItem(SESSION_KEY);
+  } catch {
+    /* ignore */
+  }
 }
 
 export const DEFAULT_PROFILE: Profile = { name: '', avatar: 'tophat', image: null, maxPlayers: 4 };
@@ -68,5 +80,9 @@ export function loadProfile(): Profile {
 }
 
 export function saveProfile(profile: Profile) {
-  localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+  try {
+    localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+  } catch {
+    /* ignore */
+  }
 }

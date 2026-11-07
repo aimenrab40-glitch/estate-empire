@@ -162,12 +162,13 @@ travels with you into every room as your avatar image.
 
 Players in the same room can talk in real time using their microphones:
 
-1. Click **🎤 Enable mic** in the *Voice chat* panel (right side of the table).
+1. Click **🎤** in the Discord-style voice bar at the bottom of the table.
 2. The browser asks for microphone permission — allow it.
-3. Everyone who has enabled their mic can hear each other; a green pulse ring shows
-   who is currently speaking (on the player list and on their board token).
-4. **Mute/Unmute**, **mic volume** and **speaker volume** sliders are in the panel.
-5. Click **Leave voice** (or mute) to stop sending audio.
+3. Everyone who has enabled their mic can hear each other; a **green ring +
+   mic badge** appears above each speaker's 3D character (red when muted).
+4. **Mute/Unmute** (mic), **Deafen/Undeafen** (headphones) and **Settings**
+   (input/output devices, volumes, mic test) are in the bottom bar.
+5. Click the mic again to mute, or leave the room, to stop sending audio.
 
 Technical notes:
 
@@ -184,10 +185,13 @@ Technical notes:
   `client/src/lib/voice.ts`) — e.g. a free Metered.ca TURN server. The defaults use
   Google's public STUN servers.
 
-## 6. Deploy 24/7 — Render + Neon PostgreSQL
+## 6. Deploy online — Render (free) + Neon PostgreSQL (free)
 
 The app runs as **one Render Web Service** serving both the API/Socket.IO and the built React
-client, with **Neon** as the durable PostgreSQL. No other infrastructure is needed.
+client, with **Neon** as the durable PostgreSQL. **100% free, no credit card, your PC
+does not need to stay on.** Full step-by-step guide (including Google OAuth setup,
+free keep-alive pinger and Hugging Face Spaces alternative):
+see **[DEPLOY.md](./DEPLOY.md)**.
 
 ### 6.1 Create the Neon database (2 minutes)
 
@@ -224,7 +228,7 @@ git push -u origin main
    | Build command | `npm ci && npm run build` |
    | Start command | `npm run start` |
    | Health check path | `/api/health` |
-   | Plan | **Starter** for true 24/7 (Free sleeps after ~15 min idle) |
+   | Plan | **Free** (sleeps after ~15 min idle; cold start ~30–60 s — see keep-alive note in DEPLOY.md) |
    | Auto-deploy | On |
 
 3. **Environment variables**:
@@ -254,10 +258,10 @@ as a secret in the Render dashboard (it is marked `sync: false`).
   start (it can never silently degrade to in-memory storage).
 - **TLS/SSL**: Neon requires SSL; `DATABASE_URL` with `sslmode=require` is parsed automatically.
 - **Health checks**: `/api/health` is light and side-effect free; Render restarts the dyno on failure.
-- **Free tier caveat**: Render Free sleeps after inactivity and cold-starts in ~30–60 s. For a
-  genuinely always-on table use Starter (~$7/mo), or ping `/api/health` with an uptime monitor.
+- **Free tier caveat**: Render Free sleeps after ~15 min idle and cold-starts in ~30–60 s;
+  ping `/api/health` every 5 min with a free uptime pinger (cron-job.org) to stay awake.
 - **Custom domain**: optional, in the Render dashboard → *Settings → Custom Domains*.
-- **Costs**: Render Starter ≈ $7/mo + Neon free tier (0.5 GB) is enough for hundreds of tables.
+- **Costs**: $0 — Render Free + Neon Free (0.5 GB is enough for hundreds of tables).
 
 ### 6.6 Local production rehearsal
 

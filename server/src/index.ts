@@ -7,7 +7,7 @@ import { Server } from 'socket.io';
 import { config } from './config.js';
 import { initDb, shutdownDb, db } from './db/pool.js';
 import { getRoomSummary, getSnapshot, listEvents, listHistory } from './db/repo.js';
-import { registerAuth, compatMode, findUserByToken, googleConfigured, discordConfigured } from './db/auth.js';
+import { registerAuth, compatMode, findUserByToken } from './db/auth.js';
 import { registerSocketHandlers } from './socket/handlers.js';
 import { getRoom, listRooms, restoreActiveRooms, sweepIdleRooms, toRoomState } from './rooms/roomManager.js';
 
@@ -166,15 +166,16 @@ io.use(async (socket, next) => {
     next();
     return;
   }
-  // Guest play stays available until OAuth keys are actually configured, so the
-  // game never hard-locks people out. Once a provider is configured in
-  // production, sign-in becomes mandatory.
-  const oauthConfigured = googleConfigured() || discordConfigured();
-  if (!config.isProd || !oauthConfigured) {
-    next();
-    return;
+  // Guests play everywhere (production included): Google/Discord sign-in is
+  // optional and only upgrades the guest identity (name + avatar). The game
+  // must never hard-lock anyone out, with or without OAuth keys.
+  const guestId = typeof handshake.auth?.userId === 'string' ? handshake.auth.userId : undefined;
+  if (guestId) {
+    socket.data.userId = guestId;
+    socket.data.userName = typeof handshake.auth?.userName === 'string' ? handshake.auth.userName : undefined;
+    socket.data.userImage = typeof handshake.auth?.userImage === 'string' ? handshake.auth.userImage : null;
   }
-  next(new Error('Not authenticated — please sign in.'));
+  next();
 });
 
 registerSocketHandlers(io);

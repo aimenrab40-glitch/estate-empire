@@ -176,12 +176,21 @@ async function upsertUser(data: {
 }
 
 function frontendOrigin(req: Request): string {
+  // Explicit public origin wins (custom domains / proxies whose Host header
+  // does not match the registered OAuth redirect URI).
+  if (config.publicOrigin) return config.publicOrigin;
   const host = req.get('host') ?? 'localhost:4000';
   const proto = config.isProd ? 'https' : 'http';
   return `${proto}://${host}`;
 }
 
 function redirectUri(req: Request, provider: 'google' | 'discord'): string {
+  // An explicitly configured redirect URI (GOOGLE_REDIRECT_URI /
+  // DISCORD_REDIRECT_URI) always wins — it must match the value registered
+  // in the provider console byte-for-byte, e.g.
+  // https://super-nova-mafia.onrender.com/auth/google/callback
+  const configured = provider === 'google' ? config.google.redirectUri : config.discord.redirectUri;
+  if (configured) return configured;
   return `${frontendOrigin(req)}/auth/${provider}/callback`;
 }
 
@@ -190,8 +199,9 @@ export function registerAuth(app: Express) {
     res.json({
       google: googleConfigured(),
       discord: discordConfigured(),
-      // Sign-in is only mandatory once OAuth keys exist. Until then guests play.
-      requireAuth: Boolean((googleConfigured() || discordConfigured()) && !compatMode()),
+      // Guests can always play; Google/Discord sign-in is an optional
+      // upgrade (profile picture + stable identity), never a gate.
+      requireAuth: false,
     });
   });
 

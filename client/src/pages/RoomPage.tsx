@@ -35,6 +35,8 @@ export default function RoomPage() {
   const voice = useVoiceChat(room?.code ?? null, meId);
 
   const [copied, setCopied] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState('');
 
   const isHost = room?.hostId === meId;
   const lobby = game?.phase === 'lobby';
@@ -76,7 +78,51 @@ export default function RoomPage() {
       <div className="flex items-center gap-3">
         <img src="/supernova-favicon.svg" alt="SUPER NOVA" className="h-9 w-9 rounded-xl" />
         <div>
-          <div className="text-sm font-black leading-tight">{room.name}</div>
+          <div className="flex items-center gap-1.5">
+            {editingName ? (
+              <>
+                <input
+                  className="input !w-auto !py-1 !px-2 text-sm"
+                  value={nameDraft}
+                  maxLength={24}
+                  autoFocus
+                  aria-label="Room name"
+                  onChange={(e) => setNameDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      void s.renameRoom(nameDraft).then((ok) => ok && setEditingName(false));
+                    }
+                    if (e.key === 'Escape') setEditingName(false);
+                  }}
+                />
+                <button
+                  className="btn btn-primary !px-2.5 !py-1 text-xs"
+                  disabled={s.busy}
+                  onClick={() => void s.renameRoom(nameDraft).then((ok) => ok && setEditingName(false))}
+                >
+                  Save
+                </button>
+              </>
+            ) : (
+              <>
+                <span className="text-sm font-black leading-tight">{room.name}</span>
+                {isHost && (
+                  <button
+                    type="button"
+                    className="rounded p-0.5 text-slate-400 hover:text-white"
+                    title="Rename table"
+                    aria-label="Rename table"
+                    onClick={() => {
+                      setNameDraft(room.name);
+                      setEditingName(true);
+                    }}
+                  >
+                    ✏️
+                  </button>
+                )}
+              </>
+            )}
+          </div>
           <div className="text-[11px] text-slate-400">
             round {game.round} · {room.players.length}/{room.maxPlayers} seats ·{' '}
             {game.phase === 'ended' ? 'finished' : game.phase === 'lobby' ? 'lobby' : `playing (${game.phase})`}
@@ -156,7 +202,7 @@ export default function RoomPage() {
   );
 
   const tableFallback = (
-    <TableSeats players={game.players} meId={meId} privateProfile={s.privateProfile} turnIndex={0} speaking={voice.speaking} />
+    <TableSeats players={game.players} meId={meId} privateProfile={s.privateProfile} turnIndex={0} speaking={voice.speaking} mutedPeers={voice.mutedPeers} />
   );
 
   /* ---------------------------------- lobby --------------------------------- */
@@ -181,6 +227,7 @@ export default function RoomPage() {
                   privateProfile={s.privateProfile}
                   turnIndex={0}
                   speaking={voice.speaking}
+                  mutedPeers={voice.mutedPeers}
                   startedAt={game.startedAt}
                   phase="lobby"
                   onLeave={() => void s.leaveRoom()}
@@ -233,7 +280,6 @@ export default function RoomPage() {
               />
             </section>
 
-            <VoiceChat state={voice} players={game.players} meId={meId} />
 
             <section className="panel p-3">
               <h3 className="mb-2 text-xs font-black uppercase tracking-wide text-slate-400">Table host</h3>
@@ -259,6 +305,9 @@ export default function RoomPage() {
             </section>
           </aside>
         </div>
+
+        {/* Discord-style voice bar — bottom of the room UI */}
+        <VoiceChat state={voice} players={game.players} meId={meId} me={s.me} />
       </div>
     );
   }
@@ -298,6 +347,7 @@ export default function RoomPage() {
                 privateProfile={s.privateProfile}
                 turnIndex={0}
                 speaking={voice.speaking}
+                mutedPeers={voice.mutedPeers}
                 startedAt={game.startedAt}
                 phase={game.phase}
                 onLeave={() => void s.leaveRoom()}
@@ -320,9 +370,8 @@ export default function RoomPage() {
         <aside className="flex min-h-0 flex-col gap-3">
           <section className="panel p-3">
             <h3 className="mb-2 text-xs font-black uppercase tracking-wide text-slate-400">Players</h3>
-            <PlayerList players={game.players} meId={meId} speaking={voice.speaking} />
+            <PlayerList players={game.players} meId={meId} speaking={voice.speaking} mutedPeers={voice.mutedPeers} />
           </section>
-          <VoiceChat state={voice} players={game.players} meId={meId} />
           <section className="panel p-3">
             <h3 className="mb-2 text-xs font-black uppercase tracking-wide text-slate-400">Table host</h3>
             <div className="flex items-center gap-2">
@@ -344,6 +393,9 @@ export default function RoomPage() {
           </section>
         </aside>
       </div>
+
+      {/* Discord-style voice bar — bottom of the room UI */}
+      <VoiceChat state={voice} players={game.players} meId={meId} me={s.me} />
     </div>
   );
 }

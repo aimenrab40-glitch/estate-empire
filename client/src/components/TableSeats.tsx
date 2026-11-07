@@ -46,13 +46,14 @@ interface ChairSeatProps {
   privateProfile: PrivateProfile | null;
   isTurn: boolean;
   speaking: boolean;
+  muted: boolean;
 }
 
 /**
  * One dedicated chair. The private overhead label lives INSIDE this
  * per-player component instance — it is not a shared element.
  */
-function ChairSeat({ player, seat, meId, privateProfile, isTurn, speaking }: ChairSeatProps) {
+function ChairSeat({ player, seat, meId, privateProfile, isTurn, speaking, muted }: ChairSeatProps) {
   const pos = seatPos(seat);
   const isMine = !!player && player.id === meId;
   // The private label may only exist for the local player AND only from the
@@ -101,8 +102,12 @@ function ChairSeat({ player, seat, meId, privateProfile, isTurn, speaking }: Cha
 
       {/* Character seated on the dedicated chair (public — visible to all). */}
       <div
-        className={`chair-character ${speaking ? 'chair-speaking' : ''}`}
-        style={{ background: player.color, opacity: player.connected ? 1 : 0.45 }}
+        className={`chair-character ${speaking && !muted ? 'chair-speaking' : ''}`}
+        style={{
+          background: player.color,
+          opacity: player.connected ? 1 : 0.45,
+          ...(muted ? { boxShadow: '0 0 0 3px #f23f43, 0 6px 14px rgba(0,0,0,0.55)' } : undefined),
+        }}
       >
         {player.avatarUrl ? (
           <img src={player.avatarUrl} alt={player.name} className="h-full w-full rounded-full object-cover" loading="lazy" />
@@ -110,6 +115,12 @@ function ChairSeat({ player, seat, meId, privateProfile, isTurn, speaking }: Cha
           <span aria-hidden="true">{emojiFor(player.avatar)}</span>
         )}
         <span className="chair-seat-num">{seat + 1}</span>
+        {speaking && !muted && (
+          <span className="chair-mic" title="Speaking" aria-hidden="true">🎤</span>
+        )}
+        {muted && (
+          <span className="chair-mute" title="Muted" aria-hidden="true">🔇</span>
+        )}
       </div>
       {player.isHost && <span className="chair-crown" title="Host">👑</span>}
       {!player.alive && <span className="chair-out" title="Eliminated">⚫</span>}
@@ -124,9 +135,10 @@ interface TableSeatsProps {
   privateProfile: PrivateProfile | null;
   turnIndex?: number;
   speaking?: Set<string>;
+  mutedPeers?: Set<string>;
 }
 
-export default function TableSeats({ players, meId, privateProfile, turnIndex = 0, speaking = new Set() }: TableSeatsProps) {
+export default function TableSeats({ players, meId, privateProfile, turnIndex = 0, speaking = new Set(), mutedPeers = new Set() }: TableSeatsProps) {
   const seats = useMemo(() => {
     return Array.from({ length: SEAT_COUNT }, (_, i) => players[i] ?? null);
   }, [players]);
@@ -146,6 +158,7 @@ export default function TableSeats({ players, meId, privateProfile, turnIndex = 
           privateProfile={privateProfile}
           isTurn={player !== null && players[turnIndex]?.id === player.id}
           speaking={player !== null && speaking.has(player.id)}
+          muted={player !== null && mutedPeers.has(player.id)}
         />
       ))}
     </div>

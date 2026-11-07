@@ -54,6 +54,11 @@ export class VoiceManager {
   private audioCtx: AudioContext | null = null;
   private gainNode: GainNode | null = null;
   private localAnalyser: AnalyserNode | null = null;
+  private sourceNode: MediaStreamAudioSourceNode | null = null;
+  private destNode: MediaStreamAudioDestinationNode | null = null;
+  private inputDeviceId: string | null = null;
+  private deafened = false;
+  private lastMicLevel = 0;
   private peers = new Map<string, RTCPeerConnection>();
   private remoteAnalysers = new Map<string, AnalyserNode>();
   private remoteStreams = new Map<string, MediaStream>();
@@ -78,6 +83,21 @@ export class VoiceManager {
   get isMuted() {
     return this.muted;
   }
+  get isDeafened() {
+    return this.deafened;
+  }
+  get currentInputDeviceId(): string | null {
+    return this.inputDeviceId;
+  }
+  /** Live mic level (0..1 RMS) for the settings test meter. */
+  getMicLevel(): number {
+    if (!this.localAnalyser || !this.enabled || this.muted || this.deafened) return 0;
+    const data = new Uint8Array(this.localAnalyser.frequencyBinCount);
+    this.localAnalyser.getByteFrequencyData(data);
+    const rms = Math.sqrt(data.reduce((s, x) => s + x * x, 0) / data.length) / 255;
+    this.lastMicLevel = rms;
+    return rms;
+  }
   get micLevel() {
     return this.micVolume;
   }
@@ -97,7 +117,12 @@ export class VoiceManager {
     let raw: MediaStream;
     try {
       raw = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          ...(this.inputDeviceId ? { deviceId: { exact: this.inputDeviceId } } : {}),
+        } as MediaTrackConstraints,
         video: false,
       });
     } catch (err) {
@@ -105,17 +130,25 @@ export class VoiceManager {
       return false;
     }
     this.localStream = raw;
+    try {
+      const settings = raw.getAudioTracks()[0]?.getSettings?.();
+      if (settings?.deviceId) this.inputDeviceId = settings.deviceId;
+    } catch {
+      /* ignore */
+    }
 
     // Route the mic through a gain node so the "mic volume" control actually
     // changes what is sent, and through an analyser for speaking detection.
     const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext;
     this.audioCtx = new AudioCtx();
     const source = this.audioCtx!.createMediaStreamSource(raw);
+    this.sourceNode = source;
     this.gainNode = this.audioCtx!.createGain();
-    this.gainNode.gain.value = this.muted ? 0 : this.micVolume;
+    this.gainNode.gain.value = this.muted || this.deafened ? 0 : this.micVolume;
     const analyser = this.audioCtx!.createAnalyser();
     analyser.fftSize = 512;
     const dest = this.audioCtx!.createMediaStreamDestination();
+    this.destNode = dest;
     source.connect(this.gainNode);
     this.gainNode.connect(dest);
     source.connect(analyser);
@@ -166,6 +199,15 @@ export class VoiceManager {
       this.localStream = null;
     }
     this.processedStream = null;
+    try {
+      this.sourceNode?.disconnect();
+      this.gainNode?.disconnect();
+      this.destNode?.disconnect();
+    } catch {
+      /* ignore */
+    }
+    this.sourceNode = null;
+    this.destNode = null;
     if (this.audioCtx) {
       try {
         await this.audioCtx.close();
@@ -185,10 +227,65 @@ export class VoiceManager {
 
   setMuted(muted: boolean) {
     this.muted = muted;
-    if (this.gainNode) this.gainNode.gain.value = muted ? 0 : this.micVolume;
+    this.applyMuteState();
+  }
+
+  /** Deafen (Discord-style): silences the mic as well as incoming audio.
+   *  Incoming audio is muted by the UI layer (audio elements); here we only
+   *  guarantee the microphone stops sending. */
+  setDeafened(deafened: boolean) {
+    this.deafened = deafened;
+    this.applyMuteState();
+  }
+
+  private applyMuteState() {
+    const silent = this.muted || this.deafened;
+    if (this.gainNode) this.gainNode.gain.value = silent ? 0 : this.micVolume;
     if (this.localStream) {
-      for (const t of this.localStream.getAudioTracks()) t.enabled = !muted;
+      for (const t of this.localStream.getAudioTracks()) t.enabled = !silent;
     }
+  }
+
+  /** Switch the input device live (no renegotiation: the processed stream
+   *  feeding every peer connection stays the same). */
+  async setInputDevice(deviceId: string | null): Promise<boolean> {
+    this.inputDeviceId = deviceId;
+    if (!this.enabled || !this.audioCtx || !this.gainNode) return true;
+    let raw: MediaStream;
+    try {
+      raw = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          ...(deviceId ? { deviceId: { exact: deviceId } } : {}),
+        } as MediaTrackConstraints,
+        video: false,
+      });
+    } catch {
+      this.cb.onError('Could not switch to that microphone.');
+      return false;
+    }
+    const old = this.localStream;
+    try {
+      this.sourceNode?.disconnect();
+    } catch {
+      /* ignore */
+    }
+    const source = this.audioCtx.createMediaStreamSource(raw);
+    this.sourceNode = source;
+    source.connect(this.gainNode);
+    if (this.localAnalyser) source.connect(this.localAnalyser);
+    this.localStream = raw;
+    this.applyMuteState();
+    if (old) for (const t of old.getTracks()) t.stop();
+    try {
+      const settings = raw.getAudioTracks()[0]?.getSettings?.();
+      if (settings?.deviceId) this.inputDeviceId = settings.deviceId;
+    } catch {
+      /* ignore */
+    }
+    return true;
   }
 
   setMicVolume(v: number) {
@@ -367,7 +464,8 @@ export class VoiceManager {
         this.cb.onSpeakingChange(new Set(next));
       }
     };
-    this.pollTimer = window.setInterval(poll, 200) as unknown as number;
+    // 120 ms: Discord-like responsiveness — the ring appears/hides almost instantly.
+    this.pollTimer = window.setInterval(poll, 120) as unknown as number;
   }
 
   private stopSpeakingDetection() {
