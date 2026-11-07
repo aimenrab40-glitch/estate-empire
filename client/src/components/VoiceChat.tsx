@@ -81,7 +81,7 @@ export default function VoiceChat({ state, players, meId }: VoiceChatProps) {
             <button
               className={`btn ${state.enabled ? 'btn-green' : 'btn-primary'} flex-1 !py-2 text-sm`}
               onClick={() => (state.enabled ? state.disable() : state.enable())}
-              disabled={!state.enabled && !state.supported}
+              disabled={!state.supported}
               title={state.enabled ? 'Leave voice chat' : 'Enable microphone'}
             >
               {state.enabled ? (state.muted ? '🔇 Unmute' : '🎤 Mute') : '🎤 Enable mic'}

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#0a0a12"/>
+  <circle cx="256" cy="256" r="228" fill="none" stroke="#ff2a2a" stroke-width="18"/>
+  <circle cx="256" cy="256" r="196" fill="none" stroke="#2b2f36" stroke-width="6"/>
+  <!-- crown -->
+  <path d="M 256 150 L 176 190 L 176 128 L 220 156 L 256 104 L 292 156 L 336 128 L 336 190 Z" fill="#f5b942" stroke="#0a0a12" stroke-width="8" stroke-linejoin="round"/>
+  <!-- SN mark -->
+  <text x="256" y="330" text-anchor="middle" font-family="'Arial Black', Arial, sans-serif" font-weight="900" font-size="140" letter-spacing="6" fill="#f8fafc">SN</text>
+  <text x="256" y="392" text-anchor="middle" font-family="Arial, sans-serif" font-weight="600" font-size="38" letter-spacing="14" fill="#ff2a2a">NOVA</text>
+  <!-- stars -->
+  <circle cx="96" cy="120" r="7" fill="#f8fafc"/>
+  <circle cx="412" cy="96" r="7" fill="#f8fafc"/>
+  <circle cx="428" cy="380" r="7" fill="#f8fafc"/>
+  <circle cx="90" cy="404" r="7" fill="#f8fafc"/>
+  <circle cx="256" cy="76" r="6" fill="#f5b942"/>
+  <circle cx="256" cy="440" r="6" fill="#f5b942"/>
+</svg>

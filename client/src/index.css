@@ -917,8 +917,89 @@
   from { filter: drop-shadow(0 0 8px rgba(255, 42, 42, 0.14)); }
   to { filter: drop-shadow(0 0 20px rgba(255, 42, 42, 0.3)); }
 }
+/* ============================ SUPER NOVA login / hero ============================ */
+.sn-login {
+  background:
+    radial-gradient(1100px 500px at 70% -6%, rgba(255, 42, 42, 0.12), transparent 55%),
+    radial-gradient(800px 460px at 12% 8%, rgba(245, 185, 66, 0.08), transparent 55%),
+    transparent;
+}
+.sn-hero {
+  background:
+    radial-gradient(700px 260px at 85% -10%, rgba(255, 42, 42, 0.18), transparent 60%),
+    linear-gradient(180deg, rgba(23, 32, 49, 0.97), rgba(10, 10, 18, 0.97));
+  border-color: rgba(255, 42, 42, 0.35);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55), 0 0 34px rgba(255, 42, 42, 0.12);
+}
+.sn-title {
+  text-shadow: 0 0 26px rgba(255, 42, 42, 0.35), 0 2px 10px rgba(0, 0, 0, 0.8);
+  letter-spacing: 0.02em;
+}
+.sn-stars {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 8% 18%, rgba(255,255,255,0.85) 0 1.5px, transparent 2.5px),
+    radial-gradient(circle at 22% 70%, rgba(255,255,255,0.65) 0 1.5px, transparent 2.5px),
+    radial-gradient(circle at 38% 30%, rgba(255,255,255,0.7) 0 1.5px, transparent 2.5px),
+    radial-gradient(circle at 55% 82%, rgba(255,255,255,0.5) 0 1.5px, transparent 2.5px),
+    radial-gradient(circle at 70% 22%, rgba(255,255,255,0.7) 0 1.5px, transparent 2.5px),
+    radial-gradient(circle at 84% 62%, rgba(255,255,255,0.55) 0 1.5px, transparent 2.5px),
+    radial-gradient(circle at 93% 30%, rgba(245,185,66,0.8) 0 1.5px, transparent 2.5px),
+    radial-gradient(circle at 46% 12%, rgba(255,255,255,0.5) 0 1px, transparent 2px);
+  opacity: 0.55;
+}
 @media (prefers-reduced-motion: reduce) {
   .sn-snake, .sn-scales, .sn-tongue, .sn-glow, .sn-scan, .sn-blink, .sn-logo { animation: none; }
+}
+
+/* ============================ SUPER NOVA login (space theme) ============================ */
+.sn-login {
+  background:
+    radial-gradient(1100px 600px at 70% -10%, rgba(255, 42, 42, 0.12) 0%, transparent 55%),
+    radial-gradient(800px 500px at 10% 110%, rgba(88, 101, 242, 0.14) 0%, transparent 55%);
+  border-radius: 28px;
+}
+.sn-hero {
+  border-color: rgba(255, 42, 42, 0.35);
+  box-shadow:
+    0 18px 44px rgba(0, 0, 0, 0.55),
+    0 0 36px rgba(255, 42, 42, 0.12),
+    inset 0 0 60px rgba(255, 42, 42, 0.05);
+}
+.sn-stars {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.9;
+  background-image:
+    radial-gradient(1.5px 1.5px at 12% 20%, #fff 50%, transparent 51%),
+    radial-gradient(1px 1px at 28% 70%, #fff 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 45% 32%, #ffd977 50%, transparent 51%),
+    radial-gradient(1px 1px at 62% 82%, #fff 50%, transparent 51%),
+    radial-gradient(1px 1px at 78% 22%, #fff 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 88% 55%, #ff9a9a 50%, transparent 51%),
+    radial-gradient(1px 1px at 36% 48%, #fff 50%, transparent 51%),
+    radial-gradient(1px 1px at 55% 12%, #fff 50%, transparent 51%),
+    radial-gradient(1px 1px at 70% 40%, #ffd977 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 95% 80%, #fff 50%, transparent 51%);
+  animation: sn-twinkle 3.6s ease-in-out infinite alternate;
+}
+@keyframes sn-twinkle {
+  from { opacity: 0.55; }
+  to { opacity: 1; }
+}
+.sn-title {
+  text-shadow:
+    0 0 18px rgba(255, 42, 42, 0.45),
+    0 2px 10px rgba(0, 0, 0, 0.8);
+}
+.sn-logo-glow {
+  filter: drop-shadow(0 0 14px rgba(255, 42, 42, 0.35));
+}
+@media (prefers-reduced-motion: reduce) {
+  .sn-stars { animation: none; }
 }
 
 /* ============================ iPhone / touch devices ============================ */

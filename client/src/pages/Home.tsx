@@ -125,27 +125,72 @@ export default function Home() {
   const openRooms = rooms.filter((r) => r.status === 'lobby' && r.playerCount < r.maxPlayers);
 
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-6xl flex-col gap-6 px-4 py-8">
+    <div className="sn-login mx-auto flex min-h-full w-full max-w-6xl flex-col gap-6 px-4 py-8">
+      {/* --------------------------- top nav ---------------------------- */}
+      <nav
+        aria-label="SUPER NOVA"
+        className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/40 px-4 py-3 backdrop-blur"
+      >
+        <a href="/" className="flex items-center gap-2.5 font-black tracking-wide">
+          <img src="/supernova-favicon.svg" alt="SUPER NOVA logo" className="h-9 w-9 rounded-xl" />
+          <span className="text-base text-white">
+            SUPER <span className="text-red-500">NOVA</span>
+          </span>
+        </a>
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <a
+            href="/"
+            className="rounded-full border border-white/20 bg-white/5 px-3 py-1.5 font-semibold text-slate-100 transition hover:bg-white/15"
+          >
+            🎲 Play the game
+          </a>
+          <a
+            href="https://github.com/aimenrab40-glitch/estate-empire"
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-full border border-white/20 bg-white/5 px-3 py-1.5 font-semibold text-slate-100 transition hover:bg-white/15"
+          >
+            🧑‍💻 GitHub
+          </a>
+          <a
+            href="/api/health"
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-full border border-white/20 bg-white/5 px-3 py-1.5 font-semibold text-slate-100 transition hover:bg-white/15"
+          >
+            ❤️ Server status
+          </a>
+        </div>
+      </nav>
+
       {/* --------------------------- SUPER NOVA banner ---------------------------- */}
       <SuperNovaBanner />
 
       {/* ---------------------------------- hero --------------------------------- */}
-      <header className="panel relative overflow-hidden p-6 sm:p-8">
-        <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-gold/15 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-20 -left-10 h-56 w-56 rounded-full bg-emerald-500/10 blur-3xl" />
+      <header className="sn-hero panel relative overflow-hidden p-6 sm:p-8">
+        <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-red-500/20 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-20 -left-10 h-56 w-56 rounded-full bg-gold/15 blur-3xl" />
+        <div className="sn-stars" aria-hidden="true" />
 
         <div className="relative flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <div className="mb-1 text-xs font-bold uppercase tracking-[0.35em] text-gold">
-              real-time multiplayer
+          <div className="flex items-start gap-4">
+            <img
+              src="/supernova-favicon.svg"
+              alt="SUPER NOVA logo"
+              className="sn-logo-glow h-16 w-16 shrink-0 rounded-2xl sm:h-20 sm:w-20"
+            />
+            <div>
+            <div className="mb-1 text-xs font-bold uppercase tracking-[0.35em] text-red-400">
+              SUPER NOVA · real-time multiplayer
             </div>
-            <h1 className="text-4xl font-black leading-none sm:text-5xl">
-              Estate <span className="text-gold-2">Empire</span>
+            <h1 className="sn-title text-4xl font-black leading-none text-white sm:text-5xl">
+              SUPER <span className="text-red-500">NOVA</span>
             </h1>
             <p className="mt-2 max-w-lg text-sm text-slate-300">
-              Buy streets, charge rent, dodge the tax man and bankrupt your friends — a modern
-              property-trading board game that runs live in the browser.
+              Mafia online with friends — step into the 3D table, trade property, dodge the tax
+              man and take down the Mafia. Live in your browser on phone and desktop.
             </p>
+            </div>
           </div>
 
           <div className="flex flex-col items-end gap-1 text-right text-xs">
@@ -381,8 +426,11 @@ export default function Home() {
         </section>
       </div>
 
-      <footer className="pb-6 text-center text-[11px] text-slate-600">
-        Estate Empire · React + TypeScript + Socket.IO + PostgreSQL
+      <footer className="pb-6 text-center text-[11px] text-slate-500">
+        <a href="/" className="underline decoration-slate-500/50 underline-offset-2 transition hover:text-slate-300">
+          SUPER NOVA
+        </a>{' '}
+        · Real-time multiplayer board game · React + TypeScript + Socket.IO + PostgreSQL
       </footer>
     </div>
   );

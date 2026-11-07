@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useState, Component, type ReactNode } from 'react';
 import { useSession } from '../context/SessionContext';
 import { useVoiceChat } from '../hooks/useVoiceChat';
 import Board from '../components/Board';
@@ -14,6 +14,24 @@ import VoiceChat from '../components/VoiceChat';
 import { BOARD } from '@shared/board';
 import { emojiFor } from '@shared/avatars';
 import { SECRET_ROLES, type Rules } from '@shared/types';
+
+/** If the 3D scene ever faults (weak GPU, driver, etc.), fall back to the 2D table instead of blanking the room. */
+class ThreeDErrorBoundary extends Component<
+  { fallback: ReactNode; children: ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(error: unknown) {
+    console.warn('[3d] scene fault, falling back to 2D table:', error);
+  }
+  render() {
+    if (this.state.hasError) return this.props.fallback;
+    return this.props.children;
+  }
+}
 
 const RULE_LABELS: { key: keyof Rules; label: string; hint: string }[] = [
   { key: 'doubleRentFullSet', label: 'Double rent for a full colour set', hint: 'Owning every tile of a colour group doubles base rent.' },
@@ -204,18 +222,24 @@ export default function RoomPage() {
 
           {/* ---------------- CENTER: waiting / board placeholder ---------------- */}
           <section className="flex min-w-0 flex-col items-center justify-center gap-4">
-            <Suspense fallback={<TableSeats players={game.players} meId={meId} privateProfile={s.privateProfile} turnIndex={game.turnIndex} speaking={voice.speaking} />}>
-              <Mafia3DTable
-                players={game.players}
-                meId={meId}
-                privateProfile={s.privateProfile}
-                turnIndex={game.turnIndex}
-                speaking={voice.speaking}
-                startedAt={game.startedAt}
-                phase={game.phase}
-                onLeave={() => void s.leaveRoom()}
-              />
-            </Suspense>
+            <ThreeDErrorBoundary
+              fallback={
+                <TableSeats players={game.players} meId={meId} privateProfile={s.privateProfile} turnIndex={game.turnIndex} speaking={voice.speaking} />
+              }
+            >
+              <Suspense fallback={<TableSeats players={game.players} meId={meId} privateProfile={s.privateProfile} turnIndex={game.turnIndex} speaking={voice.speaking} />}>
+                <Mafia3DTable
+                  players={game.players}
+                  meId={meId}
+                  privateProfile={s.privateProfile}
+                  turnIndex={game.turnIndex}
+                  speaking={voice.speaking}
+                  startedAt={game.startedAt}
+                  phase={game.phase}
+                  onLeave={() => void s.leaveRoom()}
+                />
+              </Suspense>
+            </ThreeDErrorBoundary>
             <div className="rounded-xl border border-gold/40 bg-black/30 p-6 text-center">
               <div className="text-5xl mb-2">🧟</div>
               <div className="text-sm font-black uppercase tracking-wide text-slate-300">
@@ -424,18 +448,24 @@ export default function RoomPage() {
             </div>
           )}
 
-          <Suspense fallback={<TableSeats players={game.players} meId={meId} privateProfile={s.privateProfile} turnIndex={game.turnIndex} speaking={voice.speaking} />}>
-            <Mafia3DTable
-              players={game.players}
-              meId={meId}
-              privateProfile={s.privateProfile}
-              turnIndex={game.turnIndex}
-              speaking={voice.speaking}
-              startedAt={game.startedAt}
-              phase={game.phase}
-              onLeave={() => void s.leaveRoom()}
-            />
-          </Suspense>
+          <ThreeDErrorBoundary
+            fallback={
+              <TableSeats players={game.players} meId={meId} privateProfile={s.privateProfile} turnIndex={game.turnIndex} speaking={voice.speaking} />
+            }
+          >
+            <Suspense fallback={<TableSeats players={game.players} meId={meId} privateProfile={s.privateProfile} turnIndex={game.turnIndex} speaking={voice.speaking} />}>
+              <Mafia3DTable
+                players={game.players}
+                meId={meId}
+                privateProfile={s.privateProfile}
+                turnIndex={game.turnIndex}
+                speaking={voice.speaking}
+                startedAt={game.startedAt}
+                phase={game.phase}
+                onLeave={() => void s.leaveRoom()}
+              />
+            </Suspense>
+          </ThreeDErrorBoundary>
 
           <div className="relative mx-auto w-full max-w-[min(90vh,900px)]">
             {/* Private overhead label is also pinned above the board for the local
