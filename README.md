@@ -1,3 +1,13 @@
+---
+title: SUPER NOVA Mafia
+emoji: 🧟
+colorFrom: red
+colorTo: black
+sdk: docker
+app_file: Dockerfile
+app_port: 7860
+---
+
 # 🥀 SUPER NOVA — Mafia
 
 A real-time multiplayer **Mafia** social-deduction game for the browser —
@@ -74,77 +84,79 @@ GET /api/history              finished matches from PostgreSQL
 ## 4. Project layout
 
 ```
-├── shared/            types + board/card definitions used by BOTH sides
+├── shared/            types + constants used by BOTH sides
 │   └── src/
-│       ├── board.ts       the 40 tiles, rents, grid positions
-│       ├── cards.ts       Chance & Community Chest decks
+│       ├── board.ts       room sizes + phase durations (NIGHT_MS/DAY_MS)
+│       ├── cards.ts       (legacy data, unused by Mafia)
 │       ├── avatars.ts     avatar + player colour pools
-│       └── types.ts       GameState, RoomState, socket payloads
+│       └── types.ts       GameState, RoomState, socket payloads, secret roles
 ├── server/
 │   └── src/
 │       ├── index.ts       Express + Socket.IO bootstrap
 │       ├── config.ts      environment configuration
-│       ├── game/engine.ts authoritative, pure game rules
+│       ├── game/engine.ts authoritative, pure Mafia rules (night/day/vote)
 │       ├── rooms/roomManager.ts  room registry (code, seats, chat)
 │       ├── socket/handlers.ts    every realtime event
+│       ├── db/auth.ts     Google/Discord OAuth + sessions (users table)
 │       └── db/            pool, embedded launcher, schema, repository
 ├── client/
 │   └── src/
 │       ├── context/SessionContext.tsx   socket + session state
 │       ├── pages/Home.tsx               create / join lobby
 │       ├── pages/RoomPage.tsx           lobby + live table
-│       └── components/                  Board, Dice, Controls, Chat…
+│       └── components/                  MafiaPanel, PlayerList, Chat, 3D table…
 └── package.json       npm workspaces + dev scripts
 ```
 
-## 5. How to play
+## 5. How to play (Mafia)
 
 1. **Create room** → pick a name and token → you get a 6-character invite code.
 2. Friends open the code (or join from the *Open tables* list) and take a seat.
-3. The host chooses the house rules and presses **Start game**.
-4. Everyone begins with **$1500**. Roll, move, buy streets, collect rent.
-5. Landing on a declined property starts a **20-second auction** (if enabled); every bid
-   refreshes the clock by 10 seconds.
-6. Build **houses and a hotel** on a complete colour set (build evenly, 4 houses → hotel).
-   Rent ladder applies; full sets pay double base rent only without buildings.
-7. **Mortgage** a property any time for half its price (**no rent collected until lifted**);
-   lifting costs the mortgage plus **10% interest**. Buildings in the set must be sold first.
-8. Taxes fill the **Free Parking** jackpot (if enabled); the last player solvent wins.
-9. When the game ends, a **statistics screen** shows the winner, final standings, net worth,
-   rent collected/paid, tiles, completed sets and taxes, and the result is written to
-   **Match history**.
+3. The host presses **Start game** once 2+ players are seated. Roles are dealt privately —
+   only you see yours (Mafia, Doctor, Detective, Sheikh, Citizen).
+4. **Night** (45s): Mafia picks a victim, Doctor saves one player, Detective investigates
+   one player (result delivered privately), Sheikh shields one player with a single charge.
+   The host can end the night early.
+5. **Day** (60s): discuss in chat, then vote for the Mafia. Most-voted player is lynched
+   (ties spare everyone); their role is revealed in the log.
+6. **Win**: Mafia wins when no Mafia remain dead → town wins; Mafia wins when it can no
+   longer be outvoted. The result is written to **Match history**.
 
-### Houses, hotels & mortgages (rules)
+### Roles
 
-- Own **all** streets of a colour set and none of them may be mortgaged to build.
-- Build **evenly** across the set (each street must reach the same level before raising the next);
-  max **4 houses** per street, then a **hotel**.
-- Selling a building returns **half** the build cost; sell evenly (most-built first).
-- A property with buildings pays the ladder `[1–4 houses, hotel]` — doubling from a full set
-  applies only to unimproved streets.
-- Mortgaged properties collect **no rent**; a mortgaged tile can transfer to another player
-  mortgaged (e.g. after bankruptcy) — buildings are **sold back to the bank at half price**
-  to cover the debt first.
-- Post-game **statistics**: per-player rent collected/paid, purchases, auction wins, taxes paid,
-  net worth per player; persisted matches are listed under **Recent matches** on the home page.
+- **Mafia** — kills one player each night.
+- **Doctor** — saves one player each night.
+- **Detective** — investigates one player each night; learns if they are Mafia (private).
+- **Sheikh** — shields one player; the shield breaks when it blocks a hit (1 charge).
+- **Citizen** — no night power; finds and votes out the Mafia.
+- Table sizes: 4p = 1 Mafia + Doctor + Detective; 8p+ = 2 Mafia + Sheikh.
 
 ### Automatic restore after a restart
 
-Every action is persisted to PostgreSQL (rooms, players, full game snapshot **including the
-shuffled Chance/Community Chest decks**, events and chat). On boot the server **rebuilds every
+Every action is persisted to PostgreSQL (rooms, players, full game snapshot **including
+secret roles**, events and chat). On boot the server **rebuilds every
 unfinished room** (`status IN ('lobby','playing')`) — clients reconnect and rejoin their seat
-automatically with the same cash, positions, properties, turn and match log. An auction that was
-open during the outage is settled instantly (highest bid stands) so the game can never deadlock.
+with the same alive/dead state, round, votes and log.
 
 ### Socket events
 
 Client → server: `room:create`, `room:join`, `room:leave`, `room:start`, `room:kick`,
-`room:rules`, `game:roll`, `game:buy`, `game:pass`, `game:end-turn`, `game:pay-bail`,
-`game:bid`, `game:build`, `game:sell-building`, `game:mortgage`, `game:unmortgage`,
+`mafia:night-action`, `mafia:vote`, `mafia:end-phase`,
 `voice:join`, `voice:leave`, `voice:offer`, `voice:answer`, `voice:ice`, `chat:send`
-Server → client: `state` (full room + game state), `chat:message`, `notice`, `joined`,
+Server → client: `state` (public room state, roles stripped), `private:profile` (only you),
+`chat:message`, `notice` (detective result, toasts), `joined`,
 `voice:peer-list`, `voice:peer-joined`, `voice:peer-left`, `voice:offer`, `voice:answer`,
 `voice:ice`
+
+### Accounts (Google / Discord)
+
+Guest play works with no keys. To enable real sign-in, set in the server environment:
+`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`,
+`DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_REDIRECT_URI`,
+`DISCORD_GUILD_ID` (see `.env.example`). Until keys exist, `/auth/google` and `/auth/discord`
+answer 503 with setup instructions, and the Home screen shows Guest mode. Linked accounts
+store their profile picture (Google/Discord avatar, Discord-style) in the `users` table and it
+travels with you into every room as your avatar image.
 
 ## 5b. Voice chat (WebRTC)
 

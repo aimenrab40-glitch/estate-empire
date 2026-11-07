@@ -1,24 +1,21 @@
----
-title: SUPER NOVA Mafia
-emoji: 🧟
-colorFrom: red
-colorTo: black
-sdk: docker
-app_file: Dockerfile
-app_port: 7860
----
+# SUPER NOVA — Hugging Face Spaces (free, no credit card)
 
-# SUPER NOVA — Mafia Online (Hugging Face Spaces)
+The Space runs the **repository root** with Docker. Publish this repo to a Space
+(`sdk: docker`, `app_file: Dockerfile`, `app_port: 7860`) — the frontmatter in
+the root `README.md` already describes that.
 
-Real-time multiplayer Mafia social game (Node + Express + Socket.IO + React) inside Docker.
-Runs free on HF Spaces (no credit card).
-
-## Env vars required (set in Space Settings → Variables and secrets)
+## Env vars (Space Settings → Variables and secrets — never in code)
 - `NODE_ENV=production`
-- `DATABASE_URL=<Neon pooled string>` (secret)
 - `REQUIRE_DB=1`
 - `EMBEDDED_PG=0`
-- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` (optional — when set, Google OAuth login activates)
-- `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` (optional)
+- `DATABASE_URL=<Neon pooled connection string>` (secret)
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` (optional — activates Google OAuth)
+- `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` (optional — activates Discord linking)
+- `NO_AUTH=1` — LOCAL TESTING ONLY (guest mode; never in production)
 
-The server listens on `0.0.0.0:$PORT` and serves the client + REST + Socket.IO on one origin.
+## Notes
+- The server reads `PORT` (Spaces injects 7860) and listens on `0.0.0.0`.
+- Voice (WebRTC) uses a public STUN + optional TURN (`VITE_TURN_*` at build time,
+  or the built-in free relay fallback).
+- Production requires a reachable PostgreSQL: the bundled embedded PG is disabled
+  and the server refuses to start without `DATABASE_URL`.
