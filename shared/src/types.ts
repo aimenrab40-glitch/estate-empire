@@ -20,12 +20,12 @@ export interface MafiaRoleDef {
 }
 
 export const SECRET_ROLES: Record<string, MafiaRoleDef> = {
-  mafia: { id: 'mafia', label: 'Mafia', hint: 'Kill one player each night', emoji: '🥀', color: '#ef4444' },
-  doctor: { id: 'doctor', label: 'Doctor', hint: 'Save one player each night', emoji: '✚', color: '#22c55e' },
-  detective: { id: 'detective', label: 'Detective', hint: 'Investigate one player each night', emoji: '🔍', color: '#38bdf8' },
-  sheikh: { id: 'sheikh', label: 'Sheikh', hint: 'Shield a player from one hit', emoji: '🕌', color: '#a855f7' },
-  elder: { id: 'elder', label: 'Elder', hint: 'Survives the first death sentence', emoji: '🧓', color: '#f59e0b' },
-  citizen: { id: 'citizen', label: 'Citizen', hint: 'Find and vote out the Mafia', emoji: '👤', color: '#e2e8f0' },
+  mafia: { id: 'mafia', label: 'Mafia', hint: 'Kill one player each night', emoji: 'M', color: '#ef4444' },
+  doctor: { id: 'doctor', label: 'Doctor', hint: 'Save one player each night', emoji: '+', color: '#22c55e' },
+  detective: { id: 'detective', label: 'Detective', hint: 'Investigate one player each night', emoji: '?', color: '#38bdf8' },
+  sheikh: { id: 'sheikh', label: 'Sheikh', hint: 'Shield a player from one hit', emoji: 'S', color: '#a855f7' },
+  elder: { id: 'elder', label: 'Elder', hint: 'Survives the first death sentence', emoji: 'E', color: '#f59e0b' },
+  citizen: { id: 'citizen', label: 'Citizen', hint: 'Find and vote out the Mafia', emoji: 'C', color: '#e2e8f0' },
 };
 
 /** Legacy names kept so older imports keep compiling (mapped to mafia roles). */
@@ -182,7 +182,7 @@ export interface ApiRoomSummary {
   status: string;
   maxPlayers: number;
   playerCount: number;
-  players: { name: string; avatar: string; color: string }[];
+  players: { name: string; avatar: string; color: string; image?: string | null }[];
   createdAt: string;
 }
 

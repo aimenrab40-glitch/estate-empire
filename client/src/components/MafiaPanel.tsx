@@ -30,10 +30,10 @@ function useCountdown(endsAt: number | null) {
 }
 
 const ROLE_ACTION: Partial<Record<MafiaRoleId, { kind: 'kill' | 'save' | 'investigate' | 'shield'; label: string }>> = {
-  mafia: { kind: 'kill', label: '🥀 Choose a victim' },
-  doctor: { kind: 'save', label: '✚ Save a player' },
-  detective: { kind: 'investigate', label: '🔍 Investigate a player' },
-  sheikh: { kind: 'shield', label: '🕌 Shield a player' },
+  mafia: { kind: 'kill', label: 'Choose a victim' },
+  doctor: { kind: 'save', label: 'Save a player' },
+  detective: { kind: 'investigate', label: 'Investigate a player' },
+  sheikh: { kind: 'shield', label: 'Shield a player' },
 };
 
 export default function MafiaPanel({ state, meId, privateProfile, busy, isHost = false, onNightAction, onVote, onEndPhase }: MafiaPanelProps) {
@@ -48,11 +48,11 @@ export default function MafiaPanel({ state, meId, privateProfile, busy, isHost =
   // Phase header
   const phaseTitle =
     state.phase === 'night'
-      ? `🌙 Night ${state.round}`
+      ? `Night ${state.round}`
       : state.phase === 'day'
-        ? `☀️ Day ${state.round} — vote!`
+        ? `Day ${state.round} — vote!`
         : state.phase === 'ended'
-          ? '🏁 Game over'
+          ? 'Game over'
           : 'Lobby';
 
   const action = myRole ? ROLE_ACTION[myRole] : undefined;
@@ -71,12 +71,12 @@ export default function MafiaPanel({ state, meId, privateProfile, busy, isHost =
 
       {state.phase === 'ended' && state.winnerTeam && (
         <div className="rounded-xl border border-gold/50 bg-amber-950/30 px-4 py-2 text-sm font-bold text-amber-100">
-          {state.winnerTeam === 'mafia' ? '🥀 Mafia wins!' : '👤 Town wins!'}
+          {state.winnerTeam === 'mafia' ? 'Mafia wins!' : 'Town wins!'}
         </div>
       )}
 
       {state.phase === 'night' && me && !me.alive && (
-        <div className="text-sm text-slate-400">💀 You are dead — watch the table.</div>
+        <div className="text-sm text-slate-400">You are dead — watch the table.</div>
       )}
 
       {state.phase === 'night' && me?.alive && roleDef && action && (
@@ -109,11 +109,11 @@ export default function MafiaPanel({ state, meId, privateProfile, busy, isHost =
               }
             }}
           >
-            {action.label} {saved === pick ? '✓ saved' : ''}
+            {action.label} {saved === pick ? '(saved)' : ''}
           </button>
           {saved && (
             <div className="text-[11px] font-semibold text-emerald-300">
-              ✓ Your pick is saved — you can still change it until dawn.
+              Your pick is saved — you can still change it until dawn.
             </div>
           )}
           <div className="text-[10px] text-slate-500">
@@ -125,12 +125,12 @@ export default function MafiaPanel({ state, meId, privateProfile, busy, isHost =
       )}
 
       {state.phase === 'night' && me?.alive && myRole === 'citizen' && (
-        <div className="text-sm text-slate-400">👤 Citizens sleep at night — wait for dawn.</div>
+        <div className="text-sm text-slate-400">Citizens sleep at night — wait for dawn.</div>
       )}
 
       {state.phase === 'day' && me?.alive && (
         <div className="flex w-full max-w-md flex-col gap-2 rounded-xl border border-white/15 bg-black/30 px-3 py-3">
-          <div className="text-sm font-black text-slate-100">⚖️ Vote for the Mafia</div>
+          <div className="text-sm font-black text-slate-100">Vote for the Mafia</div>
           <div className="grid max-h-52 gap-1 overflow-y-auto">
             {([...aliveOthers, me].sort((a, b) => Number(a.id === meId) - Number(b.id === meId))).map((p) => {
               const mine = state.votes[meId ?? ''] === p.id;
@@ -163,12 +163,12 @@ export default function MafiaPanel({ state, meId, privateProfile, busy, isHost =
       )}
 
       {state.phase === 'day' && me && !me.alive && (
-        <div className="text-sm text-slate-400">💀 You are dead — the town votes without you.</div>
+        <div className="text-sm text-slate-400">You are dead — the town votes without you.</div>
       )}
 
       {isHost && (state.phase === 'night' || state.phase === 'day') && onEndPhase && (
         <button className="btn btn-ghost text-xs" disabled={busy} onClick={onEndPhase}>
-          ⏩ End {state.phase} now (host)
+          End {state.phase} now (host)
         </button>
       )}
     </div>

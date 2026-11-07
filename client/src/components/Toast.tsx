@@ -17,7 +17,7 @@ export default function Toast({
         }`}
         role="status"
       >
-        <span>{kind === 'error' ? '⚠️' : '✅'}</span>
+        <span className="font-black">{kind === 'error' ? '!' : 'OK'}</span>
         <span className="flex-1">{text}</span>
         <button
           className="text-lg leading-none opacity-70 hover:opacity-100"

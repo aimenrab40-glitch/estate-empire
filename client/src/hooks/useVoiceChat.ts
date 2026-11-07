@@ -372,13 +372,13 @@ export function useVoiceChat(roomCode: string | null, meId: string | null): Voic
 
   const setMicVolume = useCallback((v: number) => {
     setMicVolumeState(v);
-    localStorage.setItem(MIC_KEY, String(v));
+    lsSet(MIC_KEY, String(v));
     managerRef.current?.setMicVolume(v);
   }, []);
 
   const setSpeakerVolume = useCallback((v: number) => {
     setSpeakerVolumeState(v);
-    localStorage.setItem(SPK_KEY, String(v));
+    lsSet(SPK_KEY, String(v));
     managerRef.current?.setSpeakerVolume(v);
   }, []);
 

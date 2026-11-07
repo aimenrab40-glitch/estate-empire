@@ -64,8 +64,7 @@ function ChairSeat({ player, seat, meId, privateProfile, isTurn, speaking, muted
   if (!player) {
     return (
       <div className="chair-empty" style={{ left: pos.left, top: pos.top }} aria-hidden="true">
-        <span className="chair-back">🪑</span>
-        <span className="chair-seat-num">{seat + 1}</span>
+        <span className="text-base font-bold text-slate-500">{seat + 1}</span>
       </div>
     );
   }
@@ -93,10 +92,10 @@ function ChairSeat({ player, seat, meId, privateProfile, isTurn, speaking, muted
           ) : (
             <span className="private-label-role private-label-waiting">
               <span className="private-role-indicator" style={{ background: '#94a3b8' }} />
-              <span>⏳ Awaiting secret role…</span>
+              <span>Awaiting secret role…</span>
             </span>
           )}
-          {roleDef && <span className="private-label-hint">{roleDef.hint} · 🔒 only you see this</span>}
+          {roleDef && <span className="private-label-hint">{roleDef.hint} · Only you see this</span>}
         </div>
       )}
 
@@ -116,15 +115,15 @@ function ChairSeat({ player, seat, meId, privateProfile, isTurn, speaking, muted
         )}
         <span className="chair-seat-num">{seat + 1}</span>
         {speaking && !muted && (
-          <span className="chair-mic" title="Speaking" aria-hidden="true">🎤</span>
+          <span className="chair-mic rounded bg-emerald-500 px-1 text-[8px] font-black text-white" title="Speaking">MIC</span>
         )}
         {muted && (
-          <span className="chair-mute" title="Muted" aria-hidden="true">🔇</span>
+          <span className="chair-mute rounded bg-red-500 px-1 text-[8px] font-black text-white" title="Muted">×</span>
         )}
       </div>
-      {player.isHost && <span className="chair-crown" title="Host">👑</span>}
-      {!player.alive && <span className="chair-out" title="Eliminated">⚫</span>}
-      {!player.connected && <span className="chair-offline" title="Offline">💤</span>}
+      {player.isHost && <span className="chair-crown rounded bg-amber-500 px-1 text-[8px] font-black text-black" title="Host">HOST</span>}
+      {!player.alive && <span className="chair-out text-[9px] font-black text-slate-400" title="Eliminated">OUT</span>}
+      {!player.connected && <span className="chair-offline text-[9px] font-black text-slate-500" title="Offline">OFFLINE</span>}
     </div>
   );
 }
@@ -146,7 +145,7 @@ export default function TableSeats({ players, meId, privateProfile, turnIndex = 
   return (
     <div className="mafia-table" aria-label={`Mafia table with ${players.length} of ${SEAT_COUNT} seats filled`}>
       <div className="mafia-felt">
-        <div className="mafia-emblem">👑 SUPER NOVA 👑</div>
+        <div className="mafia-emblem">SUPER NOVA</div>
         <div className="mafia-sub">MAFIA ONLINE · ZOMBIE MANSION TABLE</div>
       </div>
       {seats.map((player, seat) => (

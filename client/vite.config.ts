@@ -15,6 +15,10 @@ export default defineConfig({
     },
   },
   server: {
+    // Bind all interfaces so phones/tablets on the same Wi-Fi can reach the
+    // dev server via the PC's LAN IP (e.g. http://192.168.1.20:5173).
+    // NOTE: voice needs HTTPS (secure context) — use the public URL for mic tests.
+    host: true,
     port: 5173,
     strictPort: false,
     // allow importing the shared/ folder that lives outside client/

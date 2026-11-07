@@ -160,7 +160,7 @@ export default function VoiceChat({ state, players, meId, me }: VoiceChatProps) 
       {state.error && (
         <div className="absolute bottom-full right-0 z-30 mb-2 flex max-w-sm items-center gap-2 rounded-lg px-3 py-2 text-[12px] text-white" style={{ background: RED }}>
           <span className="min-w-0 flex-1">{state.error}</span>
-          <button className="shrink-0 underline" onClick={state.clearError} aria-label="Dismiss voice error">✕</button>
+          <button className="shrink-0 underline" onClick={state.clearError} aria-label="Dismiss voice error">X</button>
         </div>
       )}
 
@@ -304,7 +304,7 @@ export default function VoiceChat({ state, players, meId, me }: VoiceChatProps) 
           <div className="absolute bottom-full right-0 z-30 mb-2 w-80 max-w-[calc(100vw-2rem)] rounded-xl p-4 shadow-2xl" style={{ background: DISCORD_PANEL }}>
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-[15px] font-bold text-white">Voice Settings</h3>
-              <button className="text-[#b5bac1] hover:text-white" onClick={() => setMenu(null)} aria-label="Close settings">✕</button>
+              <button className="text-[#b5bac1] hover:text-white" onClick={() => setMenu(null)} aria-label="Close settings">X</button>
             </div>
 
             <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-[#b5bac1]" htmlFor="vc-input">Input device</label>

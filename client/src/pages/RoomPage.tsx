@@ -51,7 +51,7 @@ export default function RoomPage() {
     return (
       <div className="flex min-h-full items-center justify-center p-8 text-slate-400">
         <div className="animate-fade text-center">
-          <div className="mb-2 text-3xl">⏳</div>
+          <img src="/supernova-favicon.svg" alt="SUPER NOVA" className="mx-auto mb-3 h-12 w-12 rounded-xl" />
           <div>Connecting to the table…</div>
         </div>
       </div>
@@ -117,7 +117,7 @@ export default function RoomPage() {
                       setEditingName(true);
                     }}
                   >
-                    ✏️
+                    Edit
                   </button>
                 )}
               </>
@@ -161,7 +161,7 @@ export default function RoomPage() {
           onClick={copyCode}
           title="Copy invite link"
         >
-          {copied ? 'copied ✓' : '📋 Copy invite link'}
+          {copied ? 'copied' : 'Copy invite link'}
         </button>
         <div className="mt-1 text-[10px] text-slate-500">
           Send this to friends — anyone with the link can join the table.
@@ -179,7 +179,7 @@ export default function RoomPage() {
             onClick={copyCode}
             title="Copy room code"
           >
-            {copied ? 'copied ✓' : '📄'}
+            {copied ? 'copied' : 'Copy code'}
           </button>
         </div>
         <div className="mt-1 text-[10px] text-slate-500">
@@ -235,7 +235,9 @@ export default function RoomPage() {
               </Suspense>
             </ThreeDErrorBoundary>
             <div className="rounded-xl border border-gold/40 bg-black/30 p-6 text-center">
-              <div className="text-5xl mb-2">🧟</div>
+              <div className="mb-2 flex justify-center">
+                <img src="/supernova-favicon.svg" alt="SUPER NOVA logo" className="h-16 w-16 rounded-2xl" />
+              </div>
               <div className="text-sm font-black uppercase tracking-wide text-slate-300">
                 SUPER NOVA · Mafia Online
               </div>
@@ -244,7 +246,7 @@ export default function RoomPage() {
               </div>
               {s.privateProfile && (
                 <div className="mt-3 rounded-lg border border-slate-600/50 bg-black/40 px-3 py-2 text-[11px] text-slate-300">
-                  🔒 Your seat is private — only you see your overhead label above your chair.
+                  Your seat is private — only you see your overhead label above your chair.
                 </div>
               )}
             </div>
@@ -255,11 +257,11 @@ export default function RoomPage() {
                   disabled={!enoughPlayers || s.busy || !s.connected}
                   onClick={() => void s.start()}
                 >
-                  🚀 Start game
+                  Start game
                 </button>
               </div>
             ) : (
-              <div className="text-sm text-slate-400">Waiting for the host to start… 👑</div>
+              <div className="text-sm text-slate-400">Waiting for the host to start…</div>
             )}
           </section>
 
@@ -288,15 +290,15 @@ export default function RoomPage() {
                   <img src={room.players[0].avatarUrl} alt="" className="h-9 w-9 rounded-full object-cover ring-2 ring-white/20" loading="lazy" />
                 ) : (
                   <span
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-lg ring-2 ring-white/20"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-lg font-black ring-2 ring-white/20"
                     style={{ background: room.players[0]?.color }}
                   >
-                    🎩
+                    {(room.players[0]?.name ?? '?').slice(0, 1).toUpperCase()}
                   </span>
                 )}
                 <div className="min-w-0">
                   <div className="text-sm font-bold">{room.players[0]?.name ?? '—'}</div>
-                  <div className="text-[11px] text-gold-2">👑 Host</div>
+                  <div className="text-[11px] text-gold-2">Host</div>
                 </div>
               </div>
               <div className="text-[11px] text-slate-500">
@@ -335,7 +337,7 @@ export default function RoomPage() {
             busy={s.busy}
             connected={s.connected}
             isHost={isHost}
-            onNightAction={(targetId) => void s.nightAction(targetId)}
+            onNightAction={(kind, targetId) => void s.nightAction(kind, targetId)}
             onVote={(targetId) => void s.vote(targetId)}
             onEndPhase={() => void s.endPhase()}
           />
@@ -356,10 +358,10 @@ export default function RoomPage() {
           </ThreeDErrorBoundary>
           <div className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] text-slate-500">
             <span>
-              🟢 alive: <b className="text-emerald-300">{game.players.filter((p) => p.alive).length}</b>
+              Alive: <b className="text-emerald-300">{game.players.filter((p) => p.alive).length}</b>
             </span>
             <span>
-              ⚫ out: <b className="text-slate-300">{game.players.filter((p) => !p.alive).length}</b>
+              Out: <b className="text-slate-300">{game.players.filter((p) => !p.alive).length}</b>
             </span>
             <span>
               round <b className="text-slate-300">{game.round}</b>
@@ -379,15 +381,15 @@ export default function RoomPage() {
                 <img src={room.players[0].avatarUrl} alt="" className="h-9 w-9 rounded-full object-cover ring-2 ring-white/20" loading="lazy" />
               ) : (
                 <span
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-lg ring-2 ring-white/20"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-lg font-black ring-2 ring-white/20"
                   style={{ background: room.players[0]?.color }}
                 >
-                  🎩
+                  {(room.players[0]?.name ?? '?').slice(0, 1).toUpperCase()}
                 </span>
               )}
               <div className="min-w-0">
                 <div className="text-sm font-bold">{room.players[0]?.name ?? '—'}</div>
-                <div className="text-[11px] text-gold-2">👑 Host</div>
+                <div className="text-[11px] text-gold-2">Host</div>
               </div>
             </div>
           </section>

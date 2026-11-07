@@ -172,6 +172,7 @@ No account/card for the pinger either way.
 
 | Symptom | Cause & fix |
 |---|---|
+| On iPhone: "Safari can't open the page / connection impossible" with address `localhost` | **`localhost` means *this device* — on your phone it points to the phone itself, not your PC.** Open the public URL instead, e.g. `https://super-nova-mafia.onrender.com`. For a quick local test on the same Wi-Fi, use your PC's LAN IP (`http://192.168.1.13:5173` dev / `:4000` prod) — but note the mic needs HTTPS, so use the public URL for voice. |
 | Server crashes: "Production requires a reachable PostgreSQL" | `DATABASE_URL` missing/wrong — set the Neon pooled string in Render env and redeploy. |
 | `redirect_uri_mismatch` on Google login | The URI registered in Google Console must be byte-identical to `https://<your-service>/auth/google/callback`. Set `PUBLIC_ORIGIN` too. |
 | First visit is very slow (~1 min) | Free tier cold start after sleep — normal. Use the keep-alive pinger above, or just wait and reload. |

@@ -1117,21 +1117,21 @@ function drawPrivateLabel(canvas: HTMLCanvasElement, tex: THREE.Texture, profile
   ctx.fillStyle = '#f87171';
   ctx.font = 'bold 40px "Segoe UI", sans-serif';
   ctx.textAlign = 'left';
-  ctx.fillText('🔒', 22, 62);
+  ctx.fillText('PRIVATE', 22, 62);
   ctx.fillStyle = '#f8fafc';
   ctx.font = '900 48px "Segoe UI", sans-serif';
   ctx.fillText(profile.username.slice(0, 16), 78, 62);
   if (role) {
     ctx.font = '800 38px "Segoe UI", sans-serif';
     ctx.fillStyle = role.color;
-    ctx.fillText(`${role.emoji}  ${role.label}`, 78, 118);
+    ctx.fillText(role.label, 78, 118);
     ctx.fillStyle = '#a8a29e';
     ctx.font = '500 24px "Segoe UI", sans-serif';
-    ctx.fillText(role.hint + ' · 🔒 only you', 78, 158);
+    ctx.fillText(role.hint + ' · Private: only you', 78, 158);
   } else {
     ctx.fillStyle = '#a8a29e';
     ctx.font = '600 34px "Segoe UI", sans-serif';
-    ctx.fillText('⏳ Awaiting secret role…', 78, 120);
+    ctx.fillText('Awaiting secret role…', 78, 120);
   }
   tex.needsUpdate = true;
 }
@@ -1771,38 +1771,36 @@ export default function Mafia3DTable({ players, meId, privateProfile, turnIndex 
 
       <div className="mafia-hud-top">
         <div className="mafia-count">
-          <span className="mafia-count-ico">👥</span>
           <span><b>{players.length}/{SEAT_COUNT}</b><br /><small>PLAYERS</small></span>
         </div>
         <div className="mafia-badge">
-          <span>🪩</span><span><b>MAFIA</b><br /><small>SUPER NOVA</small></span>
+          <span><b>MAFIA</b><br /><small>SUPER NOVA</small></span>
         </div>
         <div className="mafia-timer">
-          <span>⏱ <b>{timer}</b></span>
+          <span><b>{timer}</b></span>
           <small>ROUND #{inGame ? '1' : '0'}</small>
         </div>
         <div className="mafia-icons">
-          <button className="mafia-icon-btn" title="Settings" onClick={() => setView('overview')}>⚙️</button>
-          <button className="mafia-icon-btn" title="Voice" onClick={() => setView('mine')}>🔊</button>
-          <button className="mafia-icon-btn" title="Fullscreen" onClick={goFullscreen}>⛶</button>
-          <button className="mafia-icon-btn mafia-exit" title="Leave" onClick={() => void onLeave?.()}>🚪</button>
+          <button className="mafia-icon-btn" title="Settings" onClick={() => setView('overview')}>S</button>
+          <button className="mafia-icon-btn" title="Voice" onClick={() => setView('mine')}>V</button>
+          <button className="mafia-icon-btn" title="Fullscreen" onClick={goFullscreen}>FS</button>
+          <button className="mafia-icon-btn mafia-exit" title="Leave" onClick={() => void onLeave?.()}>X</button>
         </div>
       </div>
 
       <div className="mafia-crown-card">
-        <span className="mafia-crown-ico">👑</span>
+        <span className="mafia-crown-ico text-sm font-black text-amber-400">HOST FREE</span>
         <span><b>MAFIA</b><br /><small>ONLINE</small></span>
       </div>
 
       <div className="mafia-3d-controls">
-        <button className={`btn btn-ghost !py-1 !px-2.5 text-[11px] ${view === 'overview' ? '!border-red-500/60 !text-red-300' : ''}`} onClick={() => setView('overview')}>🧟 Overview</button>
-        <button className={`btn btn-ghost !py-1 !px-2.5 text-[11px] ${view === 'mine' ? '!border-red-500/60 !text-red-300' : ''}`} onClick={() => setView('mine')}>🪑 My Chair</button>
-        <button className={`btn btn-ghost !py-1 !px-2.5 text-[11px] ${view === 'top' ? '!border-red-500/60 !text-red-300' : ''}`} onClick={() => setView('top')}>⬇️ Top</button>
+        <button className={`btn btn-ghost !py-1 !px-2.5 text-[11px] ${view === 'overview' ? '!border-red-500/60 !text-red-300' : ''}`} onClick={() => setView('overview')}>Overview</button>
+        <button className={`btn btn-ghost !py-1 !px-2.5 text-[11px] ${view === 'mine' ? '!border-red-500/60 !text-red-300' : ''}`} onClick={() => setView('mine')}>My Chair</button>
+        <button className={`btn btn-ghost !py-1 !px-2.5 text-[11px] ${view === 'top' ? '!border-red-500/60 !text-red-300' : ''}`} onClick={() => setView('top')}>Top</button>
         <span className="mafia-3d-hint">drag · orbit · scroll · zoom</span>
       </div>
 
       <div className="mafia-welcome">
-        <span className="mafia-welcome-hat">🎙️</span>
         <span>
           <b>Welcome to SUPER NOVA Mafia!</b>
           <small>{inGame ? 'Good luck... and watch your back!' : 'The game will start soon...'}</small>
@@ -1813,18 +1811,18 @@ export default function Mafia3DTable({ players, meId, privateProfile, turnIndex 
         <small>Your Role</small>
         {role ? (
           <>
-            <span className="mafia-your-role-ico" style={{ color: role.color }}>{role.emoji}</span>
+            <span className="text-base font-black" style={{ color: role.color }}>{role.emoji}</span>
             <b style={{ color: role.color }}>{role.label}</b>
             <p>{role.hint}.<br />Find the Mafia!</p>
           </>
         ) : (
           <>
-            <span className="mafia-your-role-ico">🧟</span>
+            <span className="text-base font-black text-slate-400">?</span>
             <b>Waiting…</b>
-            <p>Your secret role appears privately above your zombie-mafia character.</p>
+            <p>Your secret role appears privately above your character.</p>
           </>
         )}
-        <span className="mafia-3d-lock">🔒 only you see this</span>
+        <span className="mafia-3d-lock">Only you see this</span>
       </div>
     </div>
   );

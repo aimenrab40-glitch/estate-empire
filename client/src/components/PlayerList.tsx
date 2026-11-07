@@ -46,7 +46,7 @@ export default function PlayerList({
                 className="absolute left-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] text-white ring-2 ring-red-900"
                 title="Muted"
               >
-                🔇
+                ×
               </span>
             )}
 
@@ -58,7 +58,7 @@ export default function PlayerList({
                   {isMuted && <span className="ml-1 text-[10px] font-bold text-red-400" title="Muted">MUTE</span>}
                   {isSpeaking && <span className="ml-1 text-[10px] font-bold text-emerald-300" title="Speaking">TALK</span>}
                 </span>
-                {p.isHost && <span title="Host">👑</span>}
+                {p.isHost && <span title="Host" className="rounded bg-amber-500/20 px-1 text-[9px] font-black text-amber-300">HOST</span>}
                 {p.provider && <span title={`Signed in with ${p.provider}`} className="text-[10px] text-slate-500">{p.provider === 'google' ? 'G' : 'D'}</span>}
               </div>
               <div className="text-[11px] text-slate-400">
@@ -67,18 +67,18 @@ export default function PlayerList({
                     {role.emoji} {role.label} — dead
                   </span>
                 ) : dead ? (
-                  '💀 Dead'
+                  'Dead'
                 ) : p.connected ? (
-                  '🟢 Alive'
+                  'Alive'
                 ) : (
-                  '💤 Offline'
+                  'Offline'
                 )}
               </div>
             </div>
 
             <div className="text-right">
-              <div className={`font-black tabular-nums ${dead ? 'text-rose-400' : 'text-emerald-300'}`}>
-                {dead ? '💀' : '☀️'}
+              <div className={`font-black tabular-nums text-[11px] ${dead ? 'text-rose-400' : 'text-emerald-300'}`}>
+                {dead ? 'OUT' : 'IN'}
               </div>
               {canKick && !p.isHost && p.id !== meId && onKick && (
                 <button

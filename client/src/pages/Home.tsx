@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { useSession } from '../context/SessionContext';
 import AvatarPicker from '../components/AvatarPicker';
 import { api } from '../lib/api';
-import { emojiFor } from '@shared/avatars';
 import type { ApiRoomSummary, MatchHistoryRow } from '@shared/types';
 import { MAX_PLAYERS, MIN_PLAYERS } from '@shared/board';
 import SuperNovaBanner from '../components/SuperNovaBanner';
@@ -147,7 +146,9 @@ export default function Home() {
                   className="h-5 w-5 rounded-full object-cover"
                 />
               ) : (
-                <span>{emojiFor(profile.avatar)}</span>
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-600 text-[10px] font-black text-white">
+                  {(user.name ?? '?').slice(0, 1).toUpperCase()}
+                </span>
               )}
               <span className="max-w-28 truncate font-bold text-slate-100">{user.name}</span>
               <button
@@ -163,14 +164,14 @@ export default function Home() {
             href="/"
             className="rounded-full border border-white/20 bg-white/5 px-3 py-1.5 font-semibold text-slate-100 transition hover:bg-white/15"
           >
-            🎲 Play the game
+            Play the game
           </a>
           {oauth.discord && (
             <a
               href="/auth/discord"
               className="rounded-full border border-[#5865F2]/50 bg-[#5865F2]/20 px-3 py-1.5 font-semibold text-slate-100 transition hover:bg-[#5865F2]/30"
             >
-              🎮 Discord
+              Discord
             </a>
           )}
           <a
@@ -179,7 +180,7 @@ export default function Home() {
             rel="noreferrer"
             className="rounded-full border border-white/20 bg-white/5 px-3 py-1.5 font-semibold text-slate-100 transition hover:bg-white/15"
           >
-            🧑‍💻 GitHub
+            GitHub
           </a>
           <a
             href="/api/health"
@@ -187,7 +188,7 @@ export default function Home() {
             rel="noreferrer"
             className="rounded-full border border-white/20 bg-white/5 px-3 py-1.5 font-semibold text-slate-100 transition hover:bg-white/15"
           >
-            ❤️ Server status
+            Server status
           </a>
         </div>
       </nav>
@@ -247,7 +248,7 @@ export default function Home() {
         {/* ------------------------------ create room ----------------------------- */}
         <section className="panel p-5 sm:p-6">
           <h2 className="mb-4 flex items-center gap-2 text-lg font-black">
-            <span className="text-xl">🎲</span> Create a new table
+            Create a new table
           </h2>
 
           <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">
@@ -319,7 +320,7 @@ export default function Home() {
         {/* -------------------------------- join ---------------------------------- */}
         <section className="panel p-5 sm:p-6">
           <h2 className="mb-4 flex items-center gap-2 text-lg font-black">
-            <span className="text-xl">🔑</span> Join with an invite code
+            Join with an invite code
           </h2>
 
           <div className="flex flex-wrap gap-2">
@@ -354,7 +355,7 @@ export default function Home() {
               onClick={() => void handlePaste()}
               title="Paste the code your friend sent you"
             >
-              📋 Paste
+              Paste
             </button>
             <button
               type="button"
@@ -363,7 +364,7 @@ export default function Home() {
               onClick={() => void handleCopyCode()}
               title="Copy the code in this field"
             >
-              {copied ? 'copied ✓' : '📄 Copy'}
+              {copied ? 'copied' : 'Copy'}
             </button>
             <button
               className="btn btn-green shrink-0"
@@ -411,14 +412,24 @@ export default function Home() {
                     </div>
                     <div className="flex -space-x-1.5">
                       {r.players.slice(0, 4).map((p, i) => (
-                        <span
-                          key={i}
-                          className="inline-flex h-6 w-6 items-center justify-center rounded-full text-xs ring-2 ring-black/40"
-                          style={{ background: p.color }}
-                          title={p.name}
-                        >
-                          {emojiFor(p.avatar)}
-                        </span>
+                        p.image ? (
+                          <img
+                            key={i}
+                            src={p.image}
+                            alt={p.name}
+                            className="h-6 w-6 rounded-full object-cover ring-2 ring-black/40"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <span
+                            key={i}
+                            className="inline-flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-black text-white ring-2 ring-black/40"
+                            style={{ background: p.color }}
+                            title={p.name}
+                          >
+                            {(p.name ?? '?').slice(0, 1).toUpperCase()}
+                          </span>
+                        )
                       ))}
                     </div>
                     <button
@@ -450,7 +461,7 @@ export default function Home() {
                       <b className="font-mono">{h.code}</b> — {h.name}
                     </span>
                     <span className="shrink-0 text-slate-500">
-                      {h.winner ? `🏆 ${h.winner}` : 'no winner'} · {h.players}p · {h.rounds} rounds
+                      {h.winner ? `Winner: ${h.winner}` : 'no winner'} · {h.players}p · {h.rounds} rounds
                     </span>
                   </li>
                 ))}

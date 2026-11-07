@@ -1,21 +1,4 @@
 import { useRef } from 'react';
-import { AVATARS } from '@shared/avatars';
-
-/** The original pick set plus a wide second pack ("many emojis"). */
-const EXTRA_EMOJIS = [
-  '😎', '🤩', '🥳', '😏', '🤑', '🤔', '🫡', '😤', '🥱', '😴',
-  '😈', '👿', '💀', '☠️', '🥷', '🤖', '👽', '🦊', '🐼', '🐯',
-  '🦁', '🐵', '🐸', '🐙', '🦑', '🦩', '🦒', '🦓', '🐘', '🦏',
-  '🦬', '🐃', '🐂', '🐄', '🐴', '🐏', '🐑', '🦌', '🫎', '🦙',
-  '🐐', '🦝', '🦨', '🦡', '🐭', '🐀', '🐿️', '🦔', '🐈‍⬛', '🐕‍🦺',
-  '🔥', '✨', '🌟', '💫', '⚡', '☄️', '🌙', '⭐', '🌈', '🎧',
-  '🎮', '🎯', '🎳', '🎲', '🃏', '🀄', '🎰', '🎪', '🎭', '🎨',
-];
-
-const ALL_IDS = [
-  ...AVATARS.map((a) => a.id),
-  ...EXTRA_EMOJIS,
-];
 
 /** Downscale any image to a small JPEG data-URL (fits localStorage + socket payloads). */
 export function fileToDataUrl(file: File, maxSize = 256): Promise<string> {
@@ -50,20 +33,25 @@ export function fileToDataUrl(file: File, maxSize = 256): Promise<string> {
   });
 }
 
+/**
+ * Images-only avatar picker:
+ * - Upload any photo from phone / PC (downscaled automatically).
+ * - A built-in image-style disc shows your initial letter while no photo is set.
+ * (All emoji glyphs removed by design — only photos / letter discs are shown.)
+ */
 export default function AvatarPicker({
-  value,
   image,
-  onChange,
+  fallback,
   onImageChange,
 }: {
-  value: string;
+  /** Legacy avatar id is accepted for compatibility and ignored. */
+  value?: string;
   image: string | null;
-  onChange: (avatarId: string) => void;
+  onChange?: (avatarId: string) => void;
   onImageChange: (src: string | null) => void;
+  fallback?: string;
 }) {
   const fileRef = useRef<HTMLInputElement | null>(null);
-
-  const currentEmoji = AVATARS.find((a) => a.id === value)?.emoji ?? '🎩';
 
   const handleFile = (file: File | undefined) => {
     if (!file) return;
@@ -76,11 +64,11 @@ export default function AvatarPicker({
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-3">
-        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white/25 bg-amber-500 text-3xl shadow-lg">
+        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white/25 bg-amber-500 text-3xl font-black text-white shadow-lg">
           {image ? (
             <img src={image} alt="Your photo" className="h-full w-full object-cover" />
           ) : (
-            currentEmoji
+            (fallback ?? '?').slice(0, 1).toUpperCase()
           )}
         </div>
         <div className="min-w-0">
@@ -94,7 +82,7 @@ export default function AvatarPicker({
               className="btn btn-ghost !px-3 !py-1.5 text-xs"
               onClick={() => fileRef.current?.click()}
             >
-              📷 Upload photo
+              Upload photo
             </button>
             {image && (
               <button
@@ -102,7 +90,7 @@ export default function AvatarPicker({
                 className="btn btn-ghost !px-3 !py-1.5 text-xs"
                 onClick={() => onImageChange(null)}
               >
-                ✖ Remove
+                Remove
               </button>
             )}
           </div>
@@ -118,33 +106,6 @@ export default function AvatarPicker({
             }}
           />
         </div>
-      </div>
-
-      <div className="grid grid-cols-5 gap-2 sm:grid-cols-8">
-        {ALL_IDS.map((id) => {
-          const emoji = AVATARS.find((a) => a.id === id)?.emoji ?? id;
-          const active = !image && id === value;
-          return (
-            <button
-              key={id}
-              type="button"
-              aria-pressed={active}
-              aria-label={id}
-              title={id}
-              onClick={() => {
-                onImageChange(null);
-                onChange(id);
-              }}
-              className={`flex min-h-11 min-w-11 aspect-square items-center justify-center rounded-xl border text-xl transition ${
-                active
-                  ? 'border-gold bg-gold/20 shadow-[0_0_0_3px_rgba(245,185,66,0.25)]'
-                  : 'border-slate-600/50 bg-black/30 hover:border-slate-400'
-              }`}
-            >
-              {emoji}
-            </button>
-          );
-        })}
       </div>
     </div>
   );

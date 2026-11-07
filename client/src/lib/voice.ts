@@ -141,6 +141,10 @@ export class VoiceManager {
     // changes what is sent, and through an analyser for speaking detection.
     const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext;
     this.audioCtx = new AudioCtx();
+    // iOS Safari starts AudioContext suspended until a user gesture resumes it;
+    // enable() is called from the mic-button tap, so resume here (best effort).
+    const ctx = this.audioCtx as AudioContext;
+    void ctx.resume?.().catch(() => undefined);
     const source = this.audioCtx!.createMediaStreamSource(raw);
     this.sourceNode = source;
     this.gainNode = this.audioCtx!.createGain();

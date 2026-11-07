@@ -34,14 +34,14 @@ export default function Chat({ messages, onSend, disabled = false }: ChatProps) 
         ref={ref}
         className="h-40 overflow-y-auto rounded-xl border border-slate-600/40 bg-black/30 p-2.5 text-xs"
       >
-        {messages.length === 0 && <div className="text-slate-500">Say hi to the table 👋</div>}
+        {messages.length === 0 && <div className="text-slate-500">Say hi to the table</div>}
         {messages.map((m) => (
           <div key={m.id} className="mb-1.5 flex items-start gap-2">
             <span
-              className="mt-[1px] inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px]"
+              className="mt-[1px] inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-black text-white"
               style={{ background: m.color }}
             >
-              {emojiFor(m.avatar)}
+              {(m.name ?? '?').slice(0, 1).toUpperCase()}
             </span>
             <div className="min-w-0">
               <span className="font-bold" style={{ color: m.color }}>
@@ -70,7 +70,7 @@ export default function Chat({ messages, onSend, disabled = false }: ChatProps) 
           }}
         />
         <button className="btn btn-ghost !px-3" disabled={disabled || !text.trim()} onClick={submit}>
-          ➤
+          Send
         </button>
       </div>
     </div>

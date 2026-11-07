@@ -73,7 +73,6 @@ export default function LoginPage() {
             window.location.href = '/auth/discord';
           }}
         >
-          <span className="text-lg">🎮</span>
           <span>Link Discord (optional)</span>
         </button>
 
@@ -85,7 +84,6 @@ export default function LoginPage() {
             window.location.reload();
           }}
         >
-          <span className="text-lg">🧑‍🤝‍🧑</span>
           <span>Play as Guest</span>
         </button>
 
@@ -102,8 +100,8 @@ export default function LoginPage() {
         )}
 
         <div className="flex items-center justify-center gap-4 pt-1 text-[11px] text-slate-500">
-          <span>🔒 Accounts stored securely</span>
-          <span>📱 Phone + desktop</span>
+          <span>Accounts stored securely</span>
+          <span>Phone + desktop</span>
         </div>
         <div className="text-center text-[10px] text-slate-600">
           {cfg.google

@@ -57,7 +57,7 @@ interface SessionApi {
   renameRoom: (name: string) => Promise<boolean>;
   leaveRoom: () => Promise<void>;
   start: () => Promise<boolean>;
-  nightAction: (targetId: string | null) => Promise<boolean>;
+  nightAction: (kind: 'kill' | 'save' | 'investigate' | 'shield', targetId: string) => Promise<boolean>;
   vote: (targetId: string | null) => Promise<boolean>;
   endPhase: () => Promise<boolean>;
   kick: (targetId: string) => Promise<boolean>;
@@ -389,7 +389,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const start = useCallback(() => action(C2S.start), [action]);
   const nightAction = useCallback(
-    (targetId: string | null) => action(C2S.nightAction, { targetId }),
+    (kind: 'kill' | 'save' | 'investigate' | 'shield', targetId: string) => action(C2S.nightAction, { kind, targetId }),
     [action],
   );
   const vote = useCallback((targetId: string | null) => action(C2S.vote, { targetId }), [action]);

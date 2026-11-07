@@ -148,8 +148,8 @@ export function startGame(ctx: GameContext, byPlayerId: string): GameContext {
     },
     roles: Object.fromEntries(roles),
   };
-  log(next.state, 'system', '🌙 Night 1 — the town closes its eyes…');
-  next.state.message = '🌙 Night 1 — secret actions are open.';
+  log(next.state, 'system', 'Night 1 — the town closes its eyes…');
+  next.state.message = 'Night 1 — secret actions are open.';
   return next;
 }
 
@@ -223,7 +223,7 @@ function finishIfNeeded(next: GameState): void {
     next.winnerTeam = winner;
     next.winnerId = next.players.find((p) => p.alive && isMafia(p.role) === (winner === 'mafia'))?.id ?? null;
     next.phaseEndsAt = null;
-    next.message = winner === 'mafia' ? '👑 The Mafia wins the city!' : '👥 The Citizens win!';
+    next.message = winner === 'mafia' ? 'The Mafia wins the city!' : 'The Citizens win!';
   }
 }
 
@@ -249,7 +249,7 @@ export function resolveNight(ctx: GameContext): GameContext {
       } else {
         target.alive = false;
         summary = `${target.name} was eliminated in the night.`;
-        log(state, 'system', `🌙 ${target.name} was eliminated at night.`);
+        log(state, 'system', `${target.name} was eliminated at night.`);
       }
     }
   } else {
@@ -271,8 +271,8 @@ export function resolveNight(ctx: GameContext): GameContext {
   };
   finishIfNeeded(nextState);
   if (nextState.phase !== 'ended') {
-    nextState.message = '☀️ Day — discuss and vote who to eliminate.';
-    log(nextState, 'system', `☀️ Day ${nextState.round} — voting is open.`);
+    nextState.message = 'Day — discuss and vote who to eliminate.';
+    log(nextState, 'system', `Day ${nextState.round} — voting is open.`);
   }
   return { state: nextState, roles: ctx.roles };
 }
@@ -300,7 +300,7 @@ export function resolveVote(ctx: GameContext): GameContext {
     if (t && t.alive) {
       t.alive = false;
       summary = `${t.name} was voted out. Their role: ${role ? SECRET_ROLES[role].label : 'Citizen'}.`;
-      log(state, 'system', `☀️ ${t.name} was eliminated by vote (${role ? SECRET_ROLES[role].label : 'Citizen'} revealed).`);
+      log(state, 'system', `${t.name} was eliminated by vote (${role ? SECRET_ROLES[role].label : 'Citizen'} revealed).`);
     }
   } else {
     log(state, 'system', 'No elimination: the town abstained.');
@@ -319,8 +319,8 @@ export function resolveVote(ctx: GameContext): GameContext {
   };
   finishIfNeeded(nextState);
   if (nextState.phase !== 'ended') {
-    nextState.message = `🌙 Night ${nextState.round} — secret actions are open.`;
-    log(nextState, 'system', `🌙 Night ${nextState.round} — the town sleeps again…`);
+    nextState.message = `Night ${nextState.round} — secret actions are open.`;
+    log(nextState, 'system', `Night ${nextState.round} — the town sleeps again…`);
   }
   return { state: nextState, roles: ctx.roles };
 }

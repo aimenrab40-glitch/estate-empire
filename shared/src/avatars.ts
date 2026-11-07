@@ -1,26 +1,26 @@
 import type { AvatarOption } from './types';
 
 export const AVATARS: AvatarOption[] = [
-  { id: 'tophat', emoji: '🎩', label: 'Top hat' },
-  { id: 'car', emoji: '🚗', label: 'Race car' },
-  { id: 'dog', emoji: '🐕', label: 'Lucky pup' },
-  { id: 'ship', emoji: '🚢', label: 'Steamship' },
-  { id: 'boot', emoji: '🥾', label: 'Old boot' },
-  { id: 'cat', emoji: '🐈', label: 'Cool cat' },
-  { id: 'plane', emoji: '✈️', label: 'Airplane' },
-  { id: 'rocket', emoji: '🚀', label: 'Rocket' },
-  { id: 'crown', emoji: '👑', label: 'Crown' },
-  { id: 'alien', emoji: '👽', label: 'Alien' },
-  { id: 'robot', emoji: '🤖', label: 'Robot' },
-  { id: 'fox', emoji: '🦊', label: 'Fox' },
-  { id: 'frog', emoji: '🐸', label: 'Frog' },
-  { id: 'penguin', emoji: '🐧', label: 'Penguin' },
-  { id: 'octopus', emoji: '🐙', label: 'Octopus' },
-  { id: 'unicorn', emoji: '🦄', label: 'Unicorn' },
-  { id: 'pizza', emoji: '🍕', label: 'Pizza' },
-  { id: 'dice', emoji: '🎲', label: 'Dice' },
-  { id: 'key', emoji: '🔑', label: 'Key' },
-  { id: 'star', emoji: '⭐', label: 'Star' },
+  { id: 'tophat', emoji: 'T', label: 'Top hat' },
+  { id: 'car', emoji: 'C', label: 'Race car' },
+  { id: 'dog', emoji: 'D', label: 'Lucky pup' },
+  { id: 'ship', emoji: 'S', label: 'Steamship' },
+  { id: 'boot', emoji: 'B', label: 'Old boot' },
+  { id: 'cat', emoji: 'K', label: 'Cool cat' },
+  { id: 'plane', emoji: 'P', label: 'Airplane' },
+  { id: 'rocket', emoji: 'R', label: 'Rocket' },
+  { id: 'crown', emoji: 'Q', label: 'Crown' },
+  { id: 'alien', emoji: 'A', label: 'Alien' },
+  { id: 'robot', emoji: 'O', label: 'Robot' },
+  { id: 'fox', emoji: 'F', label: 'Fox' },
+  { id: 'frog', emoji: 'G', label: 'Frog' },
+  { id: 'penguin', emoji: 'N', label: 'Penguin' },
+  { id: 'octopus', emoji: 'E', label: 'Octopus' },
+  { id: 'unicorn', emoji: 'U', label: 'Unicorn' },
+  { id: 'pizza', emoji: 'Z', label: 'Pizza' },
+  { id: 'dice', emoji: 'L', label: 'Dice' },
+  { id: 'key', emoji: 'Y', label: 'Key' },
+  { id: 'star', emoji: 'V', label: 'Star' },
 ];
 
 export const PLAYER_COLORS = [
@@ -37,5 +37,5 @@ export const PLAYER_COLORS = [
 ];
 
 export function emojiFor(avatarId: string): string {
-  return AVATARS.find((a) => a.id === avatarId)?.emoji ?? '🎩';
+  return AVATARS.find((a) => a.id === avatarId)?.emoji ?? 'T';
 }
