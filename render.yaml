@@ -1,0 +1,23 @@
+# Estate Empire — Render Blueprint
+# Render → New → Blueprint → point at this repo. You still set DATABASE_URL
+# (Neon pooled connection string) in the dashboard; it is intentionally not stored here.
+services:
+  - type: web
+    name: estate-empire
+    runtime: node
+    plan: starter
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: REQUIRE_DB
+        value: "1"
+      - key: EMBEDDED_PG
+        value: "0"
+      # Neon pooled connection string, e.g.
+      # postgresql://USER:PASSWORD@ep-xxxx-pooler.us-east-2.aws.neon.tech/estate?sslmode=require
+      - key: DATABASE_URL
+        sync: false

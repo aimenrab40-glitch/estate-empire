@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.tools/
+.pgdata/
+*.log
+.env
+.DS_Store
+
+*.zip
+nul*.txt

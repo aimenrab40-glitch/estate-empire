@@ -1,0 +1,938 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-table: #0b1120;
+  --color-panel: #111827;
+  --color-panel-2: #161f31;
+  --color-gold: #f5b942;
+  --color-gold-2: #ffd977;
+  --color-felt: #0f2a1d;
+  --font-sans: 'Segoe UI', ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  #root {
+    min-height: 100vh;
+    min-height: 100dvh; /* iOS Safari: dynamic viewport (URL bar safe) */
+    padding:
+      env(safe-area-inset-top, 0px)
+      env(safe-area-inset-right, 0px)
+      env(safe-area-inset-bottom, 0px)
+      env(safe-area-inset-left, 0px);
+  }
+
+  body {
+    margin: 0;
+    background:
+      radial-gradient(1200px 700px at 20% -10%, #1b2a4a 0%, transparent 60%),
+      radial-gradient(900px 600px at 110% 20%, #134e33 0%, transparent 55%),
+      var(--color-table);
+    color: #e2e8f0;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    /* iPhone: no double-tap zoom delay, no grey tap flash */
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    overflow-x: hidden;
+  }
+
+  img,
+  svg {
+    max-width: 100%;
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #334155;
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  button {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+}
+
+/* ---------------------------------- board ---------------------------------- */
+
+.board {
+  container-type: inline-size;
+  display: grid;
+  grid-template-columns: repeat(11, 1fr);
+  grid-template-rows: repeat(11, 1fr);
+  aspect-ratio: 1 / 1;
+  width: 100%;
+  border: 3px solid #0f172a;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #e9edf3;
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.55),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+
+.tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: #f8fafc;
+  color: #0f172a;
+  border: 1px solid #9aa6b8;
+  overflow: hidden;
+  font-size: 7px;
+  font-size: 1.05cqw;
+  line-height: 1.15;
+  min-width: 0;
+  border-radius: 10px;
+}
+
+/* Side labels rotate like the Richup.io board. */
+.side-right .tile-name,
+.side-left .tile-name {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  padding: 0 0.15cqw;
+}
+.side-left .tile-name {
+  transform: rotate(180deg);
+}
+
+/* Corner tiles are larger and rounded on their outside corner. */
+.tile-corner {
+  z-index: 2;
+}
+.tile-corner.index-0,
+.tile-corner.index-10,
+.tile-corner.index-20,
+.tile-corner.index-30 {
+  border-radius: 14px;
+}
+
+.tile-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(circle at 50% 40%, #17324a 0%, #0e1e30 60%, #0a1626 100%);
+  border: 1px solid #0b1524;
+  color: #e2e8f0;
+  gap: 0.6cqw;
+  padding: 1cqw;
+  min-width: 0;
+  border-radius: 12px;
+}
+
+.tile-band {
+  flex: 0 0 auto;
+  height: 16%;
+  min-height: 6px;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.35);
+}
+
+/* Icon strip — one unique emoji per property / railroad / utility / tax tile. */
+.tile-icon {
+  flex: 0 0 auto;
+  font-size: 1.45cqw;
+  line-height: 1;
+  text-align: center;
+  padding: 0.35cqw 0;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+  user-select: none;
+  pointer-events: none;
+}
+
+.tile-name {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0 0.25cqw;
+  font-weight: 600;
+  overflow: hidden;
+}
+
+.tile-price {
+  flex: 0 0 auto;
+  padding: 0.2cqw 0;
+  text-align: center;
+  font-weight: 700;
+  background: #eef2f7;
+  border-top: 1px solid #cbd5e1;
+}
+
+.tile-corner .tile-name {
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.owner-dot {
+  position: absolute;
+  top: 4%;
+  right: 5%;
+  width: 14%;
+  aspect-ratio: 1 / 1;
+  border-radius: 999px;
+  border: 1.5px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+.tile-pending {
+  animation: pending-pulse 1.1s ease-in-out infinite;
+  z-index: 5;
+}
+
+.tile-mine {
+  outline: 2px solid #f5b942;
+  outline-offset: -2px;
+}
+
+/* --------------------------------- tokens ---------------------------------- */
+
+.token {
+  position: absolute;
+  width: 17%;
+  aspect-ratio: 1 / 1;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 7px;
+  font-size: 1.1cqw;
+  border: 1.5px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+  transition:
+    left 0.14s linear,
+    top 0.14s linear;
+  z-index: 6;
+  user-select: none;
+}
+
+.token-turn {
+  animation: token-bounce 1.2s ease-in-out infinite;
+}
+
+.token-speaking {
+  box-shadow:
+    0 0 0 3px rgba(34, 197, 94, 0.9),
+    0 0 12px rgba(34, 197, 94, 0.65);
+  animation: speaking-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes speaking-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.9), 0 0 12px rgba(34, 197, 94, 0.65);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(34, 197, 94, 0.55), 0 0 18px rgba(34, 197, 94, 0.4);
+  }
+}
+
+/* ---------------------------------- dice ----------------------------------- */
+
+.die {
+  width: 46px;
+  height: 46px;
+  border-radius: 10px;
+  background: linear-gradient(145deg, #ffffff, #e6ebf3);
+  border: 2px solid #cbd5e1;
+  box-shadow:
+    0 6px 14px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 #fff;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  padding: 6px;
+  gap: 2px;
+}
+
+.die.rolling {
+  animation: dice-shake 0.5s ease-in-out;
+}
+
+.pip {
+  width: 70%;
+  height: 70%;
+  margin: auto;
+  border-radius: 999px;
+  background: #0f172a;
+}
+
+.pip-red {
+  background: #dc2626;
+}
+
+/* --------------------------------- panels ---------------------------------- */
+
+.panel {
+  background: linear-gradient(180deg, rgba(23, 32, 49, 0.96), rgba(15, 23, 42, 0.96));
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 14px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border-radius: 10px;
+  padding: 0.55rem 1rem;
+  font-weight: 700;
+  font-size: 0.9rem;
+  letter-spacing: 0.01em;
+  transition:
+    transform 0.08s ease,
+    filter 0.15s ease,
+    opacity 0.15s ease;
+  border: 1px solid transparent;
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  filter: grayscale(0.4);
+}
+
+.btn-primary {
+  background: linear-gradient(180deg, var(--color-gold-2), var(--color-gold));
+  color: #1f1400;
+  border-color: #d99b1f;
+  box-shadow: 0 6px 16px rgba(245, 185, 66, 0.28);
+}
+
+.btn-primary:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+.btn-green {
+  background: linear-gradient(180deg, #34d399, #10b981);
+  color: #052e1c;
+  border-color: #059669;
+}
+
+.btn-ghost {
+  background: rgba(148, 163, 184, 0.12);
+  color: #e2e8f0;
+  border-color: rgba(148, 163, 184, 0.35);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background: rgba(148, 163, 184, 0.22);
+}
+
+.btn-danger {
+  background: linear-gradient(180deg, #f87171, #ef4444);
+  color: #450a0a;
+  border-color: #dc2626;
+}
+
+.input {
+  width: 100%;
+  border-radius: 10px;
+  background: rgba(2, 6, 23, 0.7);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  padding: 0.6rem 0.8rem;
+  color: #f1f5f9;
+  /* 16px minimum: iOS Safari auto-zooms on focus below this size */
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.input:focus {
+  border-color: var(--color-gold);
+  box-shadow: 0 0 0 3px rgba(245, 185, 66, 0.18);
+}
+
+.input::placeholder {
+  color: #64748b;
+}
+
+.turn-glow {
+  animation: turn-pulse 1.6s ease-in-out infinite;
+  border-radius: 10px;
+}
+
+/* --------------------------------- effects --------------------------------- */
+
+@keyframes dice-shake {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  20% {
+    transform: rotate(-18deg) scale(1.12);
+  }
+  45% {
+    transform: rotate(16deg) scale(0.94);
+  }
+  70% {
+    transform: rotate(-10deg) scale(1.06);
+  }
+  100% {
+    transform: rotate(0deg) scale(1);
+  }
+}
+
+@keyframes token-bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-14%);
+  }
+}
+
+@keyframes pending-pulse {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0 3px rgba(245, 185, 66, 0.9);
+  }
+  50% {
+    box-shadow: inset 0 0 0 5px rgba(245, 185, 66, 0.45);
+  }
+}
+
+@keyframes turn-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 2px rgba(245, 185, 66, 0.85);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(245, 185, 66, 0.35);
+  }
+}
+
+@keyframes toast-in {
+  from {
+    transform: translateY(-12px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes card-pop {
+  from {
+    transform: translateY(-10px) scale(0.96);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-toast {
+  animation: toast-in 0.22s ease-out;
+}
+.animate-card {
+  animation: card-pop 0.28s ease-out;
+}
+.animate-fade {
+  animation: fade-in 0.3s ease-out;
+}
+
+.log-money {
+  color: #86efac;
+}
+.log-move {
+  color: #bae6fd;
+}
+.log-card {
+  color: #fbbf24;
+}
+.log-system {
+  color: #e2e8f0;
+}
+.log-turn {
+  color: #fda4af;
+}
+.log-info {
+  color: #94a3b8;
+}
+
+/* ------------------------- buildings & mortgages ------------------------- */
+
+.build-pips {
+  position: absolute;
+  bottom: 22%;
+  left: 4%;
+  font-size: 0.95cqw;
+  line-height: 1;
+  letter-spacing: -0.18cqw;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45));
+  pointer-events: none;
+  user-select: none;
+}
+
+.mortgage-chip {
+  position: absolute;
+  bottom: 22%;
+  right: 4%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18%;
+  aspect-ratio: 1 / 1;
+  min-width: 10px;
+  border-radius: 4px;
+  background: repeating-linear-gradient(
+    -45deg,
+    #d97706,
+    #d97706 3px,
+    #fbbf24 3px,
+    #fbbf24 6px
+  );
+  color: #451a03;
+  font-size: 1cqw;
+  font-weight: 900;
+  border: 1px solid rgba(0, 0, 0, 0.35);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.tile-mortgaged {
+  filter: saturate(0.35) brightness(0.82);
+}
+
+.prop-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  border-radius: 7px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(148, 163, 184, 0.1);
+  color: #e2e8f0;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  line-height: 1.6;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+  white-space: nowrap;
+}
+
+.prop-btn:hover:not(:disabled) {
+  background: rgba(148, 163, 184, 0.22);
+  border-color: rgba(148, 163, 184, 0.55);
+}
+
+.prop-btn:disabled {
+  opacity: 0.35;
+}
+
+.prop-btn-gold {
+  border-color: rgba(245, 185, 66, 0.5);
+  background: rgba(245, 185, 66, 0.12);
+  color: #ffd977;
+}
+
+.prop-btn-gold:hover:not(:disabled) {
+  background: rgba(245, 185, 66, 0.22);
+  border-color: rgba(245, 185, 66, 0.75);
+}
+
+/* ============================ Mafia table + private labels ============================ */
+.mafia-table {
+  position: relative;
+  width: min(100%, 640px);
+  aspect-ratio: 2.2 / 1;
+  margin: 0 auto;
+  border-radius: 999px;
+  background:
+    radial-gradient(ellipse at 50% 42%, #1c2f4d 0%, #101d33 55%, #0b1524 100%);
+  border: 3px solid #1f1400;
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.55),
+    inset 0 0 0 6px rgba(245, 185, 66, 0.12),
+    inset 0 0 40px rgba(0, 0, 0, 0.6);
+}
+.mafia-felt {
+  position: absolute;
+  inset: 8% 16%;
+  border-radius: 999px;
+  background: radial-gradient(ellipse at 50% 50%, rgba(245, 185, 66, 0.14), rgba(0, 0, 0, 0.35) 75%);
+  border: 1px solid rgba(245, 185, 66, 0.25);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.mafia-emblem {
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  color: #f5b942;
+  font-size: clamp(10px, 2.2vw, 18px);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
+}
+.mafia-sub {
+  font-size: clamp(6px, 1.1vw, 9px);
+  letter-spacing: 0.25em;
+  color: #94a3b8;
+}
+.chair-seat {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 3;
+}
+.chair-empty {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  opacity: 0.45;
+}
+.chair-back { font-size: 22px; }
+.chair-seat-num { font-size: 8px; color: #64748b; margin-top: 2px; }
+.chair-character {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.55);
+  position: relative;
+}
+.chair-speaking {
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.9), 0 0 14px rgba(34, 197, 94, 0.6);
+}
+.chair-mine .chair-character {
+  outline: 3px solid #f5b942;
+  outline-offset: 2px;
+}
+.chair-turn .chair-character { animation: token-bounce 1.2s ease-in-out infinite; }
+.chair-crown, .chair-jail, .chair-out, .chair-offline {
+  position: absolute;
+  font-size: 12px;
+  top: -8px;
+  right: -6px;
+}
+
+/* Private overhead label — exists ONLY inside the owner's own ChairSeat instance.
+   Rendered locally from the unicast privateProfile. Never in RoomState. */
+.private-label {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 6px;
+  background: linear-gradient(180deg, rgba(23, 32, 49, 0.98), rgba(10, 15, 26, 0.98));
+  border: 1.5px solid #f5b942;
+  border-radius: 10px;
+  padding: 4px 8px 5px;
+  white-space: nowrap;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.65);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  pointer-events: none;
+}
+.private-label::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: #f5b942;
+}
+.private-label-name { font-weight: 900; font-size: 11px; color: #f8fafc; }
+.private-label-role {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  border: 1px solid;
+  border-radius: 999px;
+  padding: 1px 6px;
+}
+.private-label-waiting { color: #94a3b8; border-color: #475569; }
+.private-role-indicator {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  box-shadow: 0 0 6px currentColor;
+}
+.private-label-hint { font-size: 8px; color: #64748b; }
+
+.private-board-badge {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(10, 15, 26, 0.95);
+  border: 1.5px solid #f5b942;
+  border-radius: 999px;
+  padding: 4px 10px;
+  white-space: nowrap;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.6);
+}
+
+/* ============================ SUPER NOVA Zombie Mafia ============================ */
+.mafia-3d-wrap {
+  position: relative;
+  width: min(100%, 980px);
+  margin: 0 auto;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 2px solid rgba(255, 26, 26, 0.55);
+  background: #060405;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 26, 26, 0.18), 0 0 52px rgba(255, 26, 26, 0.18);
+}
+.mafia-3d-canvas {
+  width: 100%;
+  height: 560px;
+  cursor: grab;
+  background: radial-gradient(ellipse at 50% 28%, #1a0d10 0%, #060405 62%);
+}
+.mafia-3d-canvas:active { cursor: grabbing; }
+.mafia-3d-canvas canvas { width: 100% !important; height: 100% !important; display: block; }
+.mafia-3d-controls {
+  position: absolute;
+  top: 64px;
+  left: 10px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  z-index: 6;
+}
+.mafia-3d-hint {
+  font-size: 10px;
+  color: #fca5a5;
+  background: rgba(20, 4, 6, 0.9);
+  border: 1px solid rgba(255, 26, 26, 0.4);
+  border-radius: 999px;
+  padding: 3px 8px;
+}
+.mafia-3d-private {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(20, 4, 6, 0.96);
+  border: 1.5px solid #ff2222;
+  border-radius: 12px;
+  padding: 6px 12px;
+  z-index: 6;
+  white-space: nowrap;
+  max-width: calc(100% - 20px);
+}
+.mafia-3d-lock { font-size: 9px; color: #f87171; }
+.mafia-3d-note {
+  padding: 8px;
+  text-align: center;
+  font-size: 11px;
+  color: #a8a29e;
+  background: rgba(20, 4, 6, 0.95);
+}
+
+/* SUPER NOVA HUD */
+.mafia-hud-top {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  z-index: 7;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(0,0,0,0.7), transparent);
+}
+.mafia-hud-top > * { pointer-events: auto; }
+.mafia-count, .mafia-badge, .mafia-timer {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(12, 4, 6, 0.92);
+  border: 1.5px solid #ff2222;
+  border-radius: 10px;
+  padding: 5px 12px;
+  color: #fff;
+}
+.mafia-badge { border-color: #ef4444; }
+.mafia-badge b { color: #fca5a5; }
+.mafia-badge small { color: #f87171; font-size: 8px; letter-spacing: 0.18em; }
+.mafia-count b, .mafia-timer b { font-size: 16px; }
+.mafia-count small, .mafia-timer small { font-size: 9px; letter-spacing: 0.18em; color: #f87171; }
+.mafia-count-ico { font-size: 20px; background: #7f1d1d; border-radius: 8px; padding: 2px 6px; color: #fecaca; }
+.mafia-timer { flex-direction: column; align-items: center; }
+.mafia-icons { display: flex; gap: 6px; }
+.mafia-icon-btn {
+  width: 34px; height: 34px; border-radius: 10px;
+  background: rgba(12, 4, 6, 0.92);
+  border: 1.5px solid rgba(255, 34, 34, 0.65);
+  color: #fff; font-size: 16px;
+}
+.mafia-icon-btn:hover { background: rgba(127, 29, 29, 0.45); }
+.mafia-exit { border-color: rgba(239, 68, 68, 0.8); }
+
+.mafia-crown-card {
+  position: absolute;
+  right: 12px; top: 70px;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  background: rgba(12, 4, 6, 0.94);
+  border: 1.5px solid #ff2222;
+  border-radius: 12px;
+  padding: 10px 14px;
+  z-index: 7;
+  text-align: center;
+}
+.mafia-crown-ico { font-size: 26px; color: #f5b942; }
+.mafia-crown-card b { color: #fff; font-size: 13px; letter-spacing: 0.1em; }
+.mafia-crown-card small { color: #f87171; font-size: 9px; letter-spacing: 0.28em; }
+
+.mafia-welcome {
+  position: absolute;
+  bottom: 12px; left: 12px;
+  display: flex; align-items: center; gap: 10px;
+  background: linear-gradient(180deg, rgba(20,4,6,0.96), rgba(0,0,0,0.96));
+  border: 1.5px solid #ff2222;
+  border-radius: 10px;
+  padding: 8px 14px;
+  z-index: 7;
+  max-width: 46%;
+  box-shadow: 0 0 24px rgba(255,26,26,0.22);
+}
+.mafia-welcome-hat { font-size: 24px; }
+.mafia-welcome b { display: block; color: #f8fafc; font-size: 12px; }
+.mafia-welcome b em { color: #ff4444; font-style: normal; }
+.mafia-welcome small { color: #a8a29e; font-size: 10px; }
+
+.mafia-your-role {
+  position: absolute;
+  right: 12px; bottom: 12px;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  background: linear-gradient(180deg, rgba(20,4,6,0.96), rgba(0,0,0,0.96));
+  border: 1.5px solid #ff2222;
+  border-radius: 12px;
+  padding: 12px;
+  z-index: 7;
+  width: 150px;
+  text-align: center;
+  box-shadow: 0 0 24px rgba(255,26,26,0.22);
+}
+.mafia-your-role small { color: #cbd5e1; font-size: 11px; }
+.mafia-your-role b { font-size: 18px; letter-spacing: 0.04em; }
+.mafia-your-role p { margin: 0; color: #a8a29e; font-size: 10px; line-height: 1.4; }
+.mafia-your-role-ico { font-size: 30px; }
+@media (max-width: 760px) {
+  .mafia-3d-canvas { height: 380px; }
+  .mafia-your-role, .mafia-crown-card { display: none; }
+  .mafia-welcome { max-width: calc(100% - 24px); }
+}
+
+/* ============================ SUPER NOVA banner ============================ */
+.supernova-banner {
+  border: 2px solid rgba(255, 42, 42, 0.45);
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.55),
+    0 0 44px rgba(255, 42, 42, 0.14),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+}
+.sn-snake {
+  transform-box: fill-box;
+  animation: sn-slither 9s ease-in-out infinite alternate;
+  will-change: transform;
+}
+@keyframes sn-slither {
+  from { transform: translate(0, 0) rotate(-1.4deg); }
+  to { transform: translate(9px, -7px) rotate(1.6deg); }
+}
+.sn-scales { animation: sn-scale-flow 3.2s linear infinite; }
+@keyframes sn-scale-flow { to { stroke-dashoffset: -36; } }
+.sn-tongue { animation: sn-flick 2.4s ease-in-out infinite; }
+@keyframes sn-flick {
+  0%, 62%, 100% { transform: scaleX(0.35); opacity: 0.4; }
+  72%, 88% { transform: scaleX(1); opacity: 1; }
+}
+.sn-glow { animation: sn-glow-pulse 4.5s ease-in-out infinite alternate; }
+@keyframes sn-glow-pulse {
+  from { opacity: 0.55; }
+  to { opacity: 1; }
+}
+.sn-scan { animation: sn-scan-move 7s linear infinite; }
+@keyframes sn-scan-move {
+  from { transform: translateY(0); }
+  to { transform: translateY(780px); }
+}
+.sn-blink { animation: sn-blink 2.8s ease-in-out infinite; }
+@keyframes sn-blink {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 1; }
+}
+.sn-logo { filter: drop-shadow(0 0 14px rgba(255, 42, 42, 0.22)); animation: sn-logo-breathe 5s ease-in-out infinite alternate; }
+@keyframes sn-logo-breathe {
+  from { filter: drop-shadow(0 0 8px rgba(255, 42, 42, 0.14)); }
+  to { filter: drop-shadow(0 0 20px rgba(255, 42, 42, 0.3)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sn-snake, .sn-scales, .sn-tongue, .sn-glow, .sn-scan, .sn-blink, .sn-logo { animation: none; }
+}
+
+/* ============================ iPhone / touch devices ============================ */
+@media (pointer: coarse) {
+  /* comfortable 44px touch targets (Apple HIG) */
+  .btn { min-height: 44px; }
+  .mafia-icon-btn { width: 44px; height: 44px; }
+  .prop-btn { min-height: 32px; }
+}
+@media (max-width: 640px) {
+  .mafia-hud-top { flex-wrap: wrap; }
+  .mafia-badge { display: none; }
+  .mafia-count b, .mafia-timer b { font-size: 13px; }
+  .mafia-3d-controls { top: 104px; }
+  .mafia-3d-canvas { height: 340px; }
+  .private-board-badge { font-size: 11px; max-width: calc(100% - 16px); overflow: hidden; text-overflow: ellipsis; }
+}
