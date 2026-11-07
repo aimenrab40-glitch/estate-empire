@@ -6,7 +6,7 @@ services:
   - type: web
     name: estate-empire
     runtime: docker
-    plan: starter
+    plan: free
     healthCheckPath: /api/health
     autoDeploy: true
     # Docker build (Dockerfile at repo root). Render sets PORT (default 10000);
