@@ -1,15 +1,18 @@
-# Estate Empire — Render Blueprint
-# Render → New → Blueprint → point at this repo. You still set DATABASE_URL
-# (Neon pooled connection string) in the dashboard; it is intentionally not stored here.
+# Estate Empire — Render Blueprint (Docker)
+# Render → New → Blueprint → point at this repo.
+# You still set DATABASE_URL (Neon pooled connection string) in the dashboard;
+# it is intentionally not stored here (sync: false).
 services:
   - type: web
     name: estate-empire
-    runtime: node
+    runtime: docker
     plan: starter
-    buildCommand: npm ci && npm run build
-    startCommand: npm run start
     healthCheckPath: /api/health
     autoDeploy: true
+    # Docker build (Dockerfile at repo root). Render sets PORT (default 10000);
+    # the server reads process.env.PORT and listens on 0.0.0.0.
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
     envVars:
       - key: NODE_ENV
         value: production
@@ -18,6 +21,6 @@ services:
       - key: EMBEDDED_PG
         value: "0"
       # Neon pooled connection string, e.g.
-      # postgresql://USER:PASSWORD@ep-xxxx-pooler.us-east-2.aws.neon.tech/estate?sslmode=require
+      # postgresql://USER:PASSWORD@ep-xxxx-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require
       - key: DATABASE_URL
-        sync: false
+        sync: false # set manually in the dashboard (secret)
