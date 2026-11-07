@@ -113,4 +113,19 @@ export const config = {
   allowEmbedded: process.env.EMBEDDED_PG !== '0',
   /** Fixed dice RNG for deterministic engine tests (dev only). */
   fixedDice: process.env.DICE_MODE === 'fixed',
+  /** OAuth providers — keys are set ONLY in the deployment environment.
+   *  Without them the /auth/* routes answer 501 with setup instructions and
+   *  guest play keeps working. */
+  publicOrigin: (process.env.PUBLIC_ORIGIN ?? '').replace(/\/$/, ''),
+  google: {
+    clientId: process.env.GOOGLE_CLIENT_ID ?? '',
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? '',
+    redirectUri: process.env.GOOGLE_REDIRECT_URI ?? '',
+  },
+  discord: {
+    clientId: process.env.DISCORD_CLIENT_ID ?? '',
+    clientSecret: process.env.DISCORD_CLIENT_SECRET ?? '',
+    redirectUri: process.env.DISCORD_REDIRECT_URI ?? '',
+    guildId: process.env.DISCORD_GUILD_ID ?? '',
+  },
 };

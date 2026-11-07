@@ -104,12 +104,15 @@ function ChairSeat({ player, seat, meId, privateProfile, isTurn, speaking }: Cha
         className={`chair-character ${speaking ? 'chair-speaking' : ''}`}
         style={{ background: player.color, opacity: player.connected ? 1 : 0.45 }}
       >
-        <span aria-hidden="true">{emojiFor(player.avatar)}</span>
+        {player.avatarUrl ? (
+          <img src={player.avatarUrl} alt={player.name} className="h-full w-full rounded-full object-cover" loading="lazy" />
+        ) : (
+          <span aria-hidden="true">{emojiFor(player.avatar)}</span>
+        )}
         <span className="chair-seat-num">{seat + 1}</span>
       </div>
       {player.isHost && <span className="chair-crown" title="Host">👑</span>}
-      {player.inJail && <span className="chair-jail" title="In jail">🔒</span>}
-      {player.bankrupt && <span className="chair-out" title="Out">❌</span>}
+      {!player.alive && <span className="chair-out" title="Eliminated">⚫</span>}
       {!player.connected && <span className="chair-offline" title="Offline">💤</span>}
     </div>
   );

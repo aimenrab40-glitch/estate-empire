@@ -12,13 +12,14 @@ import {
   C2S,
   S2C,
   type AckResponse,
+  type AuthUser,
   type ChatMessage,
   type PrivateProfile,
   type PublicPlayer,
   type RoomState,
-  type Rules,
 } from '@shared/types';
 import { connectSocket, socket } from '../lib/socket';
+import { ensureGuest, fetchAuthConfig, fetchMe, logoutAuth } from '../lib/auth';
 import {
   DEFAULT_PROFILE,
   clearSession,
@@ -39,29 +40,25 @@ interface SessionApi {
   room: RoomState | null;
   meId: string | null;
   me: PublicPlayer | null;
-  /** Private overhead profile — local only, never replicated (own username + secret role). */
   privateProfile: PrivateProfile | null;
   profile: Profile;
+  user: AuthUser | null;
+  authLoading: boolean;
+  oauth: { google: boolean; discord: boolean };
   chat: ChatMessage[];
   toast: Toast | null;
   connected: boolean;
   busy: boolean;
   saveProfileFields: (patch: Partial<Profile>) => void;
-  createRoom: (opts?: { roomName?: string; rules?: Partial<Rules> }) => Promise<string | null>;
-  joinRoom: (code: string, opts?: { playerId?: string }) => Promise<string | null>;
+  refreshUser: () => Promise<void>;
+  logout: () => Promise<void>;
+  createRoom: (opts?: { roomName?: string }) => Promise<string | null>;
+  joinRoom: (code: string) => Promise<string | null>;
   leaveRoom: () => Promise<void>;
   start: () => Promise<boolean>;
-  roll: () => Promise<boolean>;
-  buy: () => Promise<boolean>;
-  pass: () => Promise<boolean>;
-  endTurn: () => Promise<boolean>;
-  payBail: () => Promise<boolean>;
-  bid: (amount: number) => Promise<boolean>;
-  build: (tile: number) => Promise<boolean>;
-  sellBuilding: (tile: number) => Promise<boolean>;
-  mortgage: (tile: number) => Promise<boolean>;
-  unmortgage: (tile: number) => Promise<boolean>;
-  setRules: (patch: Partial<Rules>) => Promise<boolean>;
+  nightAction: (targetId: string | null) => Promise<boolean>;
+  vote: (targetId: string | null) => Promise<boolean>;
+  endPhase: () => Promise<boolean>;
   kick: (targetId: string) => Promise<boolean>;
   sendChat: (text: string) => void;
   dismissToast: () => void;
@@ -84,6 +81,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const privateProfileRef = useRef<PrivateProfile | null>(null);
   privateProfileRef.current = privateProfile;
   const [profile, setProfile] = useState<Profile>(() => loadProfile());
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [oauth, setOauth] = useState({ google: false, discord: false });
   const [chat, setChat] = useState<ChatMessage[]>([]);
   const [toast, setToast] = useState<Toast | null>(null);
   const [connected, setConnected] = useState(false);
@@ -91,6 +91,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const sessionRef = useRef(loadSession());
   const profileRef = useRef(profile);
   profileRef.current = profile;
+  const userRef = useRef<AuthUser | null>(null);
+  userRef.current = user;
   const joiningRef = useRef(false);
 
   const showToast = useCallback((kind: 'error' | 'info', text: string) => {
@@ -107,15 +109,58 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const refreshUser = useCallback(async () => {
+    const cfg = await fetchAuthConfig();
+    setOauth({ google: cfg.google, discord: cfg.discord });
+    const me = await fetchMe();
+    if (me) {
+      setUser(me);
+      userRef.current = me;
+      // Seed the public profile name/avatar from the OAuth account once.
+      setProfile((prev) => {
+        if (prev.name.trim()) return prev;
+        const next = { ...prev, name: me.name.trim() || 'Player 1', image: me.discordImage ?? me.image };
+        saveProfile(next);
+        return next;
+      });
+    } else {
+      setUser(null);
+      userRef.current = null;
+      // Local guest mode: a stable guest id lets us test rooms without OAuth.
+      if (!cfg.requireAuth) {
+        const guest = ensureGuest();
+        setUser({ id: guest.userId, name: guest.userName || 'Guest', email: null, image: null, discordImage: null, provider: 'guest' });
+      }
+    }
+    setAuthLoading(false);
+  }, []);
+
+  const logout = useCallback(async () => {
+    await logoutAuth();
+    clearSession();
+    sessionRef.current = null;
+    setRoom(null);
+    setMeId(null);
+    setPrivateProfile(null);
+    setUser(null);
+    userRef.current = null;
+    setAuthLoading(true);
+    await refreshUser();
+  }, [refreshUser]);
+
+  useEffect(() => {
+    void refreshUser();
+  }, [refreshUser]);
+
   /* ---------------------------- socket wiring ---------------------------- */
 
   const initialConnectHandled = useRef(false);
 
   useEffect(() => {
+    if (authLoading || !user) return;
     const onState = (next: RoomState) => {
       setRoom(next);
       if (sessionRef.current && sessionRef.current.code === next.code) {
-        // keep the stored seat id in sync with the server truth
         const stored = sessionRef.current;
         const stillMine = next.players.some((p) => p.id === stored.playerId);
         if (!stillMine && next.game?.phase === 'lobby') {
@@ -129,8 +174,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     const onNotice = (n: { type?: string; message?: string }) => {
       if (n?.message) showToast(n.type === 'error' ? 'error' : 'info', n.message);
     };
-    // PRIVATE overhead profile: server unicasts only to the owning socket.
-    // Defensive check — ignore anything that is not addressed to me.
     const onPrivateProfile = (next: PrivateProfile) => {
       const myId = sessionRef.current?.playerId;
       if (!next || !myId || next.playerId !== myId) return;
@@ -138,9 +181,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     };
     const onConnect = () => {
       setConnected(true);
-      // The very first connect is handled by the mount-time join block below.
-      // Every subsequent connect is a transport reconnect — re-join the room so the
-      // server re-adds this socket to the Socket.IO room and pushes fresh state.
       if (!initialConnectHandled.current) {
         initialConnectHandled.current = true;
         return;
@@ -149,7 +189,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       if (s && !joiningRef.current) {
         socket.emit(
           C2S.join,
-          { code: s.code, playerId: s.playerId },
+          { code: s.code, userId: userRef.current?.id },
           (res: AckResponse<{ code: string; playerId: string }>) => {
             if (res?.ok && res.data) {
               sessionRef.current = res.data;
@@ -177,13 +217,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     connectSocket();
     setConnected(socket.connected);
 
-    // Rejoin the room we were in before a refresh (initial connect).
     const existing = sessionRef.current;
     if (existing) {
       joiningRef.current = true;
       socket.emit(
         C2S.join,
-        { code: existing.code, playerId: existing.playerId },
+        { code: existing.code, userId: userRef.current?.id },
         (res: AckResponse<{ code: string; playerId: string }>) => {
           joiningRef.current = false;
           if (res?.ok && res.data) {
@@ -209,11 +248,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       socket.off(S2C.notice, onNotice);
       socket.off(S2C.privateProfile, onPrivateProfile);
     };
-  }, [showToast]);
+  }, [authLoading, user?.id, showToast]);
 
   useEffect(() => {
     if (room && sessionRef.current?.code !== room.code) {
-      // server told us our code — remember it for refresh/reconnect
       if (sessionRef.current) {
         sessionRef.current = { ...sessionRef.current, code: room.code };
         saveSession(sessionRef.current);
@@ -265,15 +303,20 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   );
 
   const createRoom = useCallback(
-    async (opts?: { roomName?: string; rules?: Partial<Rules> }) => {
+    async (opts?: { roomName?: string }) => {
+      const u = userRef.current;
+      if (!u) {
+        showToast('error', 'Please sign in first.');
+        return null;
+      }
       const p = profileRef.current;
-      const name = p.name.trim() || 'Player 1';
       const res = await emit<{ code: string; playerId: string }>(C2S.create, {
-        name,
+        userId: u.id,
+        name: p.name.trim() || u.name || 'Player 1',
         avatar: p.avatar,
+        image: p.image ?? u.discordImage ?? u.image,
         maxPlayers: p.maxPlayers,
         roomName: opts?.roomName,
-        rules: opts?.rules,
       });
       if (!res.ok || !res.data) {
         showToast('error', res.error ?? 'Could not create a room.');
@@ -291,14 +334,20 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   );
 
   const joinRoom = useCallback(
-    async (code: string, opts?: { playerId?: string }) => {
+    async (code: string) => {
+      const u = userRef.current;
+      if (!u) {
+        showToast('error', 'Please sign in first.');
+        return null;
+      }
       const p = profileRef.current;
       joiningRef.current = true;
       const res = await emit<{ code: string; playerId: string }>(C2S.join, {
         code: code.trim().toUpperCase(),
-        playerId: opts?.playerId,
-        name: p.name.trim() || undefined,
+        userId: u.id,
+        name: p.name.trim() || u.name || undefined,
         avatar: p.avatar,
+        image: p.image ?? u.discordImage ?? u.image,
       });
       joiningRef.current = false;
       if (!res.ok || !res.data) {
@@ -330,17 +379,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   );
 
   const start = useCallback(() => action(C2S.start), [action]);
-  const roll = useCallback(() => action(C2S.roll), [action]);
-  const buy = useCallback(() => action(C2S.buy), [action]);
-  const pass = useCallback(() => action(C2S.pass), [action]);
-  const endTurn = useCallback(() => action(C2S.endTurn), [action]);
-  const payBail = useCallback(() => action('game:pay-bail'), [action]);
-  const bid = useCallback((amount: number) => action(C2S.bid, { amount }), [action]);
-  const build = useCallback((tile: number) => action(C2S.build, { tile }), [action]);
-  const sellBuilding = useCallback((tile: number) => action(C2S.sellBuilding, { tile }), [action]);
-  const mortgage = useCallback((tile: number) => action(C2S.mortgage, { tile }), [action]);
-  const unmortgage = useCallback((tile: number) => action(C2S.unmortgage, { tile }), [action]);
-  const setRules = useCallback((patch: Partial<Rules>) => action(C2S.rules, { rules: patch }), [action]);
+  const nightAction = useCallback(
+    (targetId: string | null) => action(C2S.nightAction, { targetId }),
+    [action],
+  );
+  const vote = useCallback((targetId: string | null) => action(C2S.vote, { targetId }), [action]);
+  const endPhase = useCallback(() => action(C2S.endPhase), [action]);
   const kick = useCallback((targetId: string) => action(C2S.kick, { targetId }), [action]);
 
   const sendChat = useCallback((text: string) => {
@@ -360,26 +404,23 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     me,
     privateProfile,
     profile,
+    user,
+    authLoading,
+    oauth,
     chat,
     toast,
     connected,
     busy,
     saveProfileFields,
+    refreshUser,
+    logout,
     createRoom,
     joinRoom,
     leaveRoom,
     start,
-    roll,
-    buy,
-    pass,
-    endTurn,
-    payBail,
-    bid,
-    build,
-    sellBuilding,
-    mortgage,
-    unmortgage,
-    setRules,
+    nightAction,
+    vote,
+    endPhase,
     kick,
     sendChat,
     dismissToast,

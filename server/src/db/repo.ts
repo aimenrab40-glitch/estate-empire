@@ -1,11 +1,6 @@
 import { db } from './pool.js';
-import type { ApiRoomSummary, ChatMessage, GameState, MatchHistoryRow } from '../../../shared/src/types.js';
+import type { ApiRoomSummary, ChatMessage, GameState, LinkedAccount, MatchHistoryRow } from '../../../shared/src/types.js';
 
-/**
- * All persistence goes through this module. Every call degrades gracefully
- * when PostgreSQL is unavailable (in-memory mode): failures are logged once
- * per function and never break the live game.
- */
 const warned = new Set<string>();
 function softFail(where: string, err: unknown) {
   if (warned.has(where)) return;
@@ -36,15 +31,15 @@ export async function persistRoom(
 
 export async function persistPlayer(
   code: string,
-  player: { id: string; name: string; avatar: string; color: string; seat: number },
+  player: { id: string; name: string; avatar: string; image?: string | null; color: string; seat: number },
 ) {
   try {
     await db.query(
-      `INSERT INTO players (id, room_code, name, avatar, color, seat)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO players (id, room_code, name, avatar, image_url, color, seat)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, avatar = EXCLUDED.avatar,
-         color = EXCLUDED.color, seat = EXCLUDED.seat`,
-      [player.id, code, player.name, player.avatar, player.color, player.seat],
+         image_url = EXCLUDED.image_url, color = EXCLUDED.color, seat = EXCLUDED.seat`,
+      [player.id, code, player.name, player.avatar, (player.image ?? null) as string | null, player.color, player.seat],
     );
   } catch (err) {
     softFail('persistPlayer', err);
@@ -71,22 +66,14 @@ export async function persistGameState(state: GameState) {
   }
 }
 
-/** Persist the full game context (state + shuffled decks) so a room can be
- *  restored exactly after a server restart. */
-export async function persistGameContext(
-  code: string,
-  state: GameState,
-  chanceDeck: string[],
-  chestDeck: string[],
-) {
+export async function persistGameContext(code: string, state: GameState, roles: Record<string, string> = {}) {
   try {
     await db.query(
-      `INSERT INTO game_snapshots (room_code, state, chance_deck, chest_deck, updated_at)
-       VALUES ($1, $2, $3, $4, now())
+      `INSERT INTO game_snapshots (room_code, state, private_roles, updated_at)
+       VALUES ($1, $2, $3, now())
        ON CONFLICT (room_code) DO UPDATE SET state = EXCLUDED.state,
-         chance_deck = EXCLUDED.chance_deck, chest_deck = EXCLUDED.chest_deck,
-         updated_at = now()`,
-      [code, JSON.stringify(state), JSON.stringify(chanceDeck), JSON.stringify(chestDeck)],
+         private_roles = EXCLUDED.private_roles, updated_at = now()`,
+      [code, JSON.stringify(state), JSON.stringify(roles)],
     );
   } catch (err) {
     softFail('persistGameContext', err);
@@ -95,26 +82,20 @@ export async function persistGameContext(
 
 export interface PersistedGameContext {
   state: GameState;
-  chanceDeck: string[];
-  chestDeck: string[];
+  roles: Record<string, string>;
 }
 
 export async function getGameContext(code: string): Promise<PersistedGameContext | null> {
   try {
-    const res = await db.query<{
-      state: GameState;
-      chance_deck: unknown;
-      chest_deck: unknown;
-    }>(
-      `SELECT state, chance_deck, chest_deck FROM game_snapshots WHERE room_code = $1`,
+    const res = await db.query<{ state: GameState; private_roles: unknown }>(
+      `SELECT state, private_roles FROM game_snapshots WHERE room_code = $1`,
       [code],
     );
     if (res.rowCount === 0) return null;
     const r = res.rows[0];
     return {
       state: r.state,
-      chanceDeck: Array.isArray(r.chance_deck) ? (r.chance_deck as string[]) : [],
-      chestDeck: Array.isArray(r.chest_deck) ? (r.chest_deck as string[]) : [],
+      roles: (r.private_roles ?? {}) as Record<string, string>,
     };
   } catch (err) {
     softFail('getGameContext', err);
@@ -268,7 +249,6 @@ export async function listHistory(limit = 15): Promise<MatchHistoryRow[]> {
   }
 }
 
-/** Restore the most recent chat messages for a rejoined room (oldest first). */
 export async function listChat(code: string, limit = 50): Promise<ChatMessage[]> {
   try {
     const res = await db.query<{ payload: ChatMessage }>(
@@ -294,5 +274,113 @@ export async function listEvents(code: string, limit = 50) {
   } catch (err) {
     softFail('listEvents', err);
     return [];
+  }
+}
+
+/* --------------------------- linked accounts (OAuth) -------------------------- */
+
+export async function upsertLinkedAccount(account: LinkedAccount): Promise<LinkedAccount> {
+  try {
+    const id = `${account.provider}:${account.providerSub}`;
+    if (account.provider === 'google') {
+      await db.query(
+        `INSERT INTO users (id, google_sub, email, name, image_url, player_id, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, now())
+         ON CONFLICT (google_sub) DO UPDATE SET email = EXCLUDED.email, name = EXCLUDED.name,
+           image_url = EXCLUDED.image_url, player_id = EXCLUDED.player_id, updated_at = now()`,
+        [id, account.providerSub, account.email, account.displayName ?? 'Player', account.avatarUrl, account.playerId || null],
+      );
+    } else {
+      await db.query(
+        `INSERT INTO users (id, discord_id, email, name, discord_image_url, image_url, player_id, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, now())
+         ON CONFLICT (discord_id) DO UPDATE SET email = EXCLUDED.email, name = EXCLUDED.name,
+           discord_image_url = EXCLUDED.discord_image_url, image_url = EXCLUDED.image_url,
+           player_id = EXCLUDED.player_id, updated_at = now()`,
+        [id, account.providerSub, account.email, account.displayName ?? 'Player', account.avatarUrl, account.avatarUrl, account.playerId || null],
+      );
+    }
+  } catch (err) {
+    softFail('upsertLinkedAccount', err);
+  }
+  return account;
+}
+
+export async function getLinkedAccount(provider: string, sub: string): Promise<LinkedAccount | null> {
+  try {
+    const col = provider === 'google' ? 'google_sub' : 'discord_id';
+    const res = await db.query<{
+      provider: string;
+      provider_sub: string;
+      email: string | null;
+      display_name: string | null;
+      avatar_url: string | null;
+      player_id: string | null;
+    }>(
+      `SELECT NULLIF($1 = 'google', google_sub, discord_id) AS provider_sub, email,
+              name AS display_name,
+              COALESCE(discord_image_url, image_url) AS avatar_url, player_id,
+              $1 AS provider
+         FROM users WHERE ${col} = $2 LIMIT 1`,
+      [provider, sub],
+    );
+    const r = res.rows[0];
+    if (!r) return null;
+    return {
+      playerId: r.player_id ?? '',
+      provider: r.provider as 'google' | 'discord',
+      providerSub: r.provider_sub,
+      email: r.email,
+      displayName: r.display_name,
+      avatarUrl: r.avatar_url,
+    };
+  } catch (err) {
+    softFail('getLinkedAccount', err);
+    return null;
+  }
+}
+
+export async function getLinkedProfile(playerId: string): Promise<LinkedAccount | null> {
+  try {
+    const res = await db.query<{
+      provider: string;
+      provider_sub: string;
+      email: string | null;
+      display_name: string | null;
+      avatar_url: string | null;
+    }>(
+      `SELECT 'google' AS provider, google_sub AS provider_sub, email, name AS display_name, image_url AS avatar_url
+         FROM users WHERE player_id = $1 AND google_sub IS NOT NULL
+         UNION ALL
+         SELECT 'discord' AS provider, discord_id AS provider_sub, email, name AS display_name, COALESCE(discord_image_url, image_url) AS avatar_url
+         FROM users WHERE player_id = $1 AND discord_id IS NOT NULL
+         LIMIT 1`,
+      [playerId],
+    );
+    const r = res.rows[0];
+    if (!r) return null;
+    return {
+      playerId,
+      provider: r.provider as 'google' | 'discord',
+      providerSub: r.provider_sub,
+      email: r.email,
+      displayName: r.display_name,
+      avatarUrl: r.avatar_url,
+    };
+  } catch (err) {
+    softFail('getLinkedProfile', err);
+    return null;
+  }
+}
+
+/** Persist an OAuth session token (opaque, hashed at rest). */
+export async function createSession(tokenHash: string, userId: string, expiresAt: Date): Promise<void> {
+  try {
+    await db.query(
+      `INSERT INTO sessions (token_hash, user_id, expires_at) VALUES ($1, $2, $3)`,
+      [tokenHash, userId, expiresAt],
+    );
+  } catch (err) {
+    softFail('createSession', err);
   }
 }

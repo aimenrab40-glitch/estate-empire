@@ -8,7 +8,7 @@ import { MAX_PLAYERS, MIN_PLAYERS } from '@shared/board';
 import SuperNovaBanner from '../components/SuperNovaBanner';
 
 export default function Home() {
-  const { createRoom, joinRoom, profile, saveProfileFields, connected, busy } = useSession();
+  const { createRoom, joinRoom, profile, saveProfileFields, connected, busy, user, logout, oauth } = useSession();
   const [code, setCode] = useState('');
   const [roomName, setRoomName] = useState('');
   const [rooms, setRooms] = useState<ApiRoomSummary[]>([]);
@@ -138,12 +138,41 @@ export default function Home() {
           </span>
         </a>
         <div className="flex flex-wrap items-center gap-2 text-xs">
+          {user && (
+            <span className="flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-3 py-1.5">
+              {(user.discordImage ?? user.image) ? (
+                <img
+                  src={(user.discordImage ?? user.image) as string}
+                  alt={user.name}
+                  className="h-5 w-5 rounded-full object-cover"
+                />
+              ) : (
+                <span>{emojiFor(profile.avatar)}</span>
+              )}
+              <span className="max-w-28 truncate font-bold text-slate-100">{user.name}</span>
+              <button
+                type="button"
+                className="font-semibold text-slate-300 underline hover:text-white"
+                onClick={() => void logout()}
+              >
+                Log out
+              </button>
+            </span>
+          )}
           <a
             href="/"
             className="rounded-full border border-white/20 bg-white/5 px-3 py-1.5 font-semibold text-slate-100 transition hover:bg-white/15"
           >
             🎲 Play the game
           </a>
+          {oauth.discord && (
+            <a
+              href="/auth/discord"
+              className="rounded-full border border-[#5865F2]/50 bg-[#5865F2]/20 px-3 py-1.5 font-semibold text-slate-100 transition hover:bg-[#5865F2]/30"
+            >
+              🎮 Discord
+            </a>
+          )}
           <a
             href="https://github.com/aimenrab40-glitch/estate-empire"
             target="_blank"
@@ -187,8 +216,8 @@ export default function Home() {
               SUPER <span className="text-red-500">NOVA</span>
             </h1>
             <p className="mt-2 max-w-lg text-sm text-slate-300">
-              Mafia online with friends — step into the 3D table, trade property, dodge the tax
-              man and take down the Mafia. Live in your browser on phone and desktop.
+              Mafia online with friends — step into the 3D table, hide your role, protect the
+              town and take down the Mafia. Live in your browser on phone and desktop.
             </p>
             </div>
           </div>
@@ -277,8 +306,8 @@ export default function Home() {
           </button>
 
           <p className="mt-3 text-center text-[11px] text-slate-500">
-            Everyone starts with <b className="text-emerald-300">$1,500</b>. Host controls the house
-            rules inside the room.
+            Host starts the night once <b className="text-emerald-300">2+ players</b> are seated.
+            Roles are dealt privately — only you see yours.
           </p>
         </section>
 

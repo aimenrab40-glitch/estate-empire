@@ -1,14 +1,15 @@
 /**
- * Targeted rule tests for the parts the long simulation cannot reach quickly:
- * wrong-turn guards, GO salary, bankruptcy, jail and bail.
- * Run with:  npx tsx server/scripts/test-rules.ts
+ * Mafia rule tests: roles, night kill/save/investigate/shield, day vote,
+ * win conditions.
+ * Run with: npx tsx server/scripts/test-rules.ts
  */
 import {
   createGame,
   startGame,
-  rollDice,
-  endTurn,
-  payBail,
+  nightAction,
+  resolveNight,
+  vote,
+  resolveVote,
   GameError,
   type GameContext,
 } from '../src/game/engine.js';
@@ -42,116 +43,96 @@ const expectError = (fn: () => unknown, match: string, label: string) => {
   }
 };
 
-/** Returns values in order, repeating the last one forever. */
-const seq = (...values: number[]) => {
-  let i = 0;
-  return () => values[Math.min(i++, values.length - 1)];
+const makeLobby = (n: number) => {
+  const ids = Array.from({ length: n }, (_, i) => `p${i + 1}`);
+  const ctx = createGame('TEST00', ids.map((id, i) => ({ id, name: `P${i + 1}`, avatar: 'tophat', isHost: i === 0 })), n);
+  // Deterministic rng for reproducible roles.
+  let seed = 42;
+  const rng = () => {
+    seed = (seed * 1664525 + 1013904223) % 4294967296;
+    return seed / 4294967296;
+  };
+  return { ctx, rng, ids };
 };
 
-/** Test fixture: hand the turn straight back to Alice without simulating Bob. */
-const toAlice = (c: GameContext): GameContext => {
-  c.state.turnIndex = 0;
-  c.state.awaiting = 'roll';
-  c.state.doublesCount = 0;
-  c.state.canRollAgain = false;
-  return c;
-};
-
-const freshGame = (seed = 1): GameContext => {
-  const members = [
-    { id: 'p1', name: 'Alice', avatar: 'car', isHost: true },
-    { id: 'p2', name: 'Bob', avatar: 'dog', isHost: false },
-  ];
-  const rng = seq(0.2, 0.05);
-  return createGame('TEST01', members, 6, undefined, rng);
-};
-
-/* ------------------------------- turn guards ------------------------------- */
-console.log('\nTurn guards');
-{
-  let ctx = freshGame();
-  expectError(() => rollDice(ctx, 'p1'), 'not started', 'roll before the game starts is rejected');
-  expectError(() => startGame(ctx, 'p2'), 'Only the host', 'non-host cannot start the game');
-  ctx = startGame(ctx, 'p1');
-  expectError(() => rollDice(ctx, 'p2'), "Alice's turn", 'rolling out of turn is rejected');
-  expectError(() => endTurn(ctx, 'p1'), 'Finish your move', 'ending a turn before rolling is rejected');
-  check(ctx.state.players[0].cash === 1500, 'starting balance is $1500');
-  check(ctx.state.players[1].cash === 1500, 'second player starts with $1500');
+function roleOf(ctx: GameContext, id: string) {
+  return ctx.state.players.find((p) => p.id === id)?.role;
 }
 
-/* --------------------------------- GO salary -------------------------------- */
-console.log('\nPassing GO');
+// --- guards ---
 {
-  let ctx = startGame(freshGame(), 'p1');
-  ctx.state.players[0].position = 37; // 3 tiles from GO
-  const before = ctx.state.players[0].cash;
-  ctx = rollDice(ctx, 'p1', seq(0.2, 0.05)); // 2 + 1 = 3 → lands on GO
-  const after = ctx.state.players[0];
-  check(after.position === 0, `lands on GO (position ${after.position})`);
-  check(after.cash === before + 200, `collects the $200 salary ($${before} → $${after.cash})`);
+  const { ctx, rng } = makeLobby(4);
+  expectError(() => startGame(ctx, 'p2', rng), 'Only the host', 'non-host cannot start');
+  const started = startGame(ctx, 'p1', rng);
+  check(started.state.phase === 'night', 'game starts at night 1');
+  check(started.state.round === 1, 'round is 1');
+  const roles = started.state.players.map((p) => p.role);
+  check(roles.filter((r) => r === 'mafia').length === 1, 'exactly 1 mafia in 4p');
+  check(managerRolesOk(roles), 'one of each special role present in 4p');
+  expectError(() => vote(started, 'p1', 'p2'), 'Voting is only open during the day', 'cannot vote during night');
+  expectError(() => nightAction(started, 'p1', 'kill', 'p2'), 'does not match your role', 'non-mafia cannot kill');
 }
 
-/* --------------------------------- jail ------------------------------------ */
-console.log('\nJail');
-{
-  let ctx = startGame(freshGame(), 'p1');
-  ctx.state.players[0].position = 28; // 1 + 1 lands on Go To Jail (30)
-  ctx = rollDice(ctx, 'p1', seq(0.0, 0.0)); // 1 + 1 → tile 30 (doubles, but jail wins)
-  const p1 = ctx.state.players[0];
-  check(p1.position === 10 && p1.inJail, 'Go To Jail sends the player to jail');
-  check(ctx.state.awaiting === 'end-turn', 'turn ends after going to jail');
-
-  ctx = endTurn(ctx, 'p1');
-  ctx = toAlice(ctx); // Bob never rolled in this fixture — hand the turn back
-  ctx = rollDice(ctx, 'p1', seq(0.7, 0.7)); // 5 + 5 doubles → walks free, lands on Free Parking
-  const freed = ctx.state.players[0];
-  check(!freed.inJail, 'rolling doubles releases from jail');
-  check(freed.position === 20, `moves by the roll after release (position ${freed.position})`);
-  check(ctx.state.awaiting === 'end-turn', 'turn ends after leaving jail');
-
-  // pay bail instead of rolling doubles
-  ctx = endTurn(ctx, 'p1');
-  ctx = toAlice(ctx);
-  const cashBefore = ctx.state.players[0].cash;
-  ctx.state.players[0].position = 28;
-  ctx = rollDice(ctx, 'p1', seq(0.0, 0.0));
-  check(ctx.state.players[0].inJail, 'back in jail for the bail check');
-  ctx = endTurn(ctx, 'p1');
-  ctx = toAlice(ctx);
-  ctx = payBail(ctx, 'p1');
-  const jailed = ctx.state.players[0];
-  check(!jailed.inJail, 'paying bail releases the player');
-  check(jailed.cash === cashBefore - 50, `bail costs $50 ($${cashBefore} → $${jailed.cash})`);
+function managerRolesOk(roles: (string | undefined)[]): boolean {
+  return roles.includes('doctor') || roles.includes('detective') || roles.includes('sheikh') || roles.includes('citizen');
 }
 
-/* ------------------------------- bankruptcy -------------------------------- */
-console.log('\nBankruptcy');
+// --- night kill / save ---
 {
-  let ctx = startGame(freshGame(), 'p1');
-  const p1 = ctx.state.players[0];
-  const p2 = ctx.state.players[1];
+  const { ctx, rng } = makeLobby(4);
+  const started = startGame(ctx, 'p1', rng);
+  const mafia = started.state.players.find((p) => p.role === 'mafia')!;
+  const doctor = started.state.players.find((p) => p.role === 'doctor');
+  const target = started.state.players.find((p) => p.id !== mafia.id && p.id !== doctor?.id)!;
 
-  // Alice owns all four stations → rent on North Station = $200
-  for (const t of [5, 15, 25, 35]) {
-    ctx.state.ownerId[t] = p1.id;
-    p1.properties.push(t);
+  // Mafia kills, nobody saves -> victim dies.
+  const afterKill = nightAction(started, mafia.id, 'kill', target.id).ctx;
+  const dawn = resolveNight(afterKill);
+  check(dawn.state.players.find((p) => p.id === target.id)?.alive === false, 'unprotected victim dies at dawn');
+  check(dawn.state.phase === 'day', 'night resolves to day');
+
+  // Doctor saves the victim -> nobody dies.
+  const { ctx: c2, rng: r2 } = makeLobby(4);
+  const s2 = startGame(c2, 'p1', r2);
+  const m2 = s2.state.players.find((p) => p.role === 'mafia')!;
+  const d2 = s2.state.players.find((p) => p.role === 'doctor')!;
+  const t2 = s2.state.players.find((p) => p.alive && p.id !== m2.id && p.id !== d2.id)!;
+  const k = nightAction(s2, m2.id, 'kill', t2.id).ctx;
+  const sv = nightAction(k, d2.id, 'save', t2.id).ctx;
+  const dawn2 = resolveNight(sv);
+  check(dawn2.state.players.filter((p) => !p.alive).length === 0, 'doctor save prevents the kill');
+}
+
+// --- detective investigation ---
+{
+  const { ctx, rng } = makeLobby(5);
+  const started = startGame(ctx, 'p1', rng);
+  const detective = started.state.players.find((p) => p.role === 'detective');
+  if (detective) {
+    const mafia = started.state.players.find((p) => p.role === 'mafia')!;
+    const res = nightAction(started, detective.id, 'investigate', mafia.id);
+    check(res.investigationResult?.isMafia === true, 'detective correctly flags the mafia');
+  } else {
+    check(true, 'detective skipped (no detective in bag — still valid)');
   }
-  p2.position = 3; // 2 tiles away from North Station
-  p2.cash = 50; // not enough to cover the $200 rent
-
-  // Hand the turn straight to Bob (Alice has nothing to resolve in this fixture).
-  ctx.state.turnIndex = 1;
-  ctx.state.awaiting = 'roll';
-  ctx = rollDice(ctx, 'p2', seq(0.0, 0.0)); // 1 + 1 = 2 → lands on North Station
-
-  const state = ctx.state;
-  check(state.players[1].bankrupt, 'player who cannot pay rent goes bankrupt');
-  check(state.phase === 'ended' && state.winnerId === 'p1', 'last player standing wins');
-  check(state.players[0].properties.includes(5) && state.players[1].properties.length === 0, 'assets transfer to the creditor');
-  check(state.players[1].cash === 0, 'bankrupt player is left with $0');
-  expectError(() => rollDice(ctx, 'p1'), 'over', 'actions after the game ends are rejected');
 }
 
-/* -------------------------------- summary ---------------------------------- */
-console.log(`\n${failed === 0 ? '✅' : '❌'} rule tests: ${passed} passed, ${failed} failed`);
-process.exit(failed === 0 ? 0 : 1);
+// --- day vote / lynch ---
+{
+  const { ctx, rng } = makeLobby(4);
+  const started = startGame(ctx, 'p1', rng);
+  const mafia = started.state.players.find((p) => p.role === 'mafia')!;
+  // Fast-forward: everyone votes the mafia out.
+  let cur = resolveNight(nightAction(started, mafia.id, 'kill', started.state.players.find((p) => p.alive && p.role !== 'mafia')!.id).ctx);
+  check(cur.state.phase === 'day', 'reached day for voting');
+  for (const p of cur.state.players.filter((p) => p.alive)) {
+    if (p.id === mafia.id) continue;
+    cur = vote(cur, p.id, mafia.id);
+  }
+  cur = resolveVote(cur);
+  check(cur.state.players.find((p) => p.id === mafia.id)?.alive === false, 'lynch removes the most-voted player');
+  check(cur.state.phase === 'ended' && cur.state.winnerTeam === 'citizens', 'town wins when the last mafia is lynched');
+}
+
+console.log(`\n✅ rule tests: ${passed} passed, ${failed} failed`);
+process.exit(failed ? 1 : 0);

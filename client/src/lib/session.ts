@@ -6,11 +6,34 @@ export interface RoomSession {
 export interface Profile {
   name: string;
   avatar: string;
+  image: string | null;
   maxPlayers: number;
 }
 
 const SESSION_KEY = 'estate.session.v1';
 const PROFILE_KEY = 'estate.profile.v1';
+const AUTH_KEY = 'supernova.auth.v1';
+
+export interface LinkedAuth {
+  provider: 'google' | 'discord';
+  name: string | null;
+  image: string | null;
+}
+
+export function loadAuth(): LinkedAuth | null {
+  try {
+    const raw = localStorage.getItem(AUTH_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as LinkedAuth;
+  } catch {
+    return null;
+  }
+}
+
+export function saveAuth(auth: LinkedAuth | null) {
+  if (!auth) localStorage.removeItem(AUTH_KEY);
+  else localStorage.setItem(AUTH_KEY, JSON.stringify(auth));
+}
 
 export function loadSession(): RoomSession | null {
   try {
@@ -32,7 +55,7 @@ export function clearSession() {
   localStorage.removeItem(SESSION_KEY);
 }
 
-export const DEFAULT_PROFILE: Profile = { name: '', avatar: 'tophat', maxPlayers: 4 };
+export const DEFAULT_PROFILE: Profile = { name: '', avatar: 'tophat', image: null, maxPlayers: 4 };
 
 export function loadProfile(): Profile {
   try {

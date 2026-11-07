@@ -1,47 +1,61 @@
 /**
- * Shared type definitions used by both the server (authoritative game engine)
- * and the React client (rendering / socket payloads).
+ * Shared types for SUPER NOVA — Mafia (server authoritative + React client).
+ *
+ * The game is a social-deduction Mafia: secret roles, night kills/saves/
+ * investigates, day discussion + voting, lynch, win check.
+ * Roles are NEVER broadcast to other players: they live server-side and are
+ * delivered one-by-one via S2C.privateProfile to the owning socket only.
+ * A dead player's role becomes public (revealed in the log + player list).
  */
 
-export type TileKind =
-  | 'go'
-  | 'property'
-  | 'railroad'
-  | 'utility'
-  | 'tax'
-  | 'chance'
-  | 'chest'
-  | 'jail'
-  | 'parking'
-  | 'gotojail';
+/** Secret team roles. */
+export type MafiaRoleId = 'mafia' | 'doctor' | 'detective' | 'sheikh' | 'elder' | 'citizen';
 
-export type GroupColor =
-  | 'brown'
-  | 'lightblue'
-  | 'pink'
-  | 'orange'
-  | 'red'
-  | 'yellow'
-  | 'green'
-  | 'blue'
-  | 'rail'
-  | 'utility';
+export interface MafiaRoleDef {
+  id: MafiaRoleId;
+  label: string;
+  hint: string;
+  emoji: string;
+  color: string;
+}
 
-export interface Tile {
-  index: number;
-  name: string;
-  kind: TileKind;
-  /** Unique emoji icon shown in the middle of the tile. */
-  icon?: string;
-  /** Purchase price (properties, railroads, utilities). */
-  price?: number;
-  /** Tax amount for `tax` tiles. */
-  amount?: number;
-  group?: GroupColor;
-  /** Rent ladder: [base, 1 house, 2, 3, 4, hotel] — only base is used in Phase 1. */
-  rent?: number[];
-  /** Cost to build one house (Phase 2). */
-  houseCost?: number;
+export const SECRET_ROLES: Record<string, MafiaRoleDef> = {
+  mafia: { id: 'mafia', label: 'Mafia', hint: 'Kill one player each night', emoji: '🥀', color: '#ef4444' },
+  doctor: { id: 'doctor', label: 'Doctor', hint: 'Save one player each night', emoji: '✚', color: '#22c55e' },
+  detective: { id: 'detective', label: 'Detective', hint: 'Investigate one player each night', emoji: '🔍', color: '#38bdf8' },
+  sheikh: { id: 'sheikh', label: 'Sheikh', hint: 'Shield a player from one hit', emoji: '🕌', color: '#a855f7' },
+  elder: { id: 'elder', label: 'Elder', hint: 'Survives the first death sentence', emoji: '🧓', color: '#f59e0b' },
+  citizen: { id: 'citizen', label: 'Citizen', hint: 'Find and vote out the Mafia', emoji: '👤', color: '#e2e8f0' },
+};
+
+/** Legacy names kept so older imports keep compiling (mapped to mafia roles). */
+export const LEGACY_ROLES = ['godfather', 'investigator', 'villager'] as const;
+
+/** Role bag for N players (2..10). Mafia count grows with table size. */
+export function roleBagFor(count: number): MafiaRoleId[] {
+  const n = Math.max(2, Math.min(10, count));
+  const mafiaCount = n >= 8 ? 2 : 1;
+  const bag: MafiaRoleId[] = [];
+  for (let i = 0; i < mafiaCount; i++) bag.push('mafia');
+  if (n >= 4) bag.push('doctor');
+  if (n >= 4) bag.push('detective');
+  if (n >= 6) bag.push('sheikh');
+  while (bag.length < n) bag.push('citizen');
+  return bag.slice(0, n);
+}
+
+/** Shuffle + assign one secret role per player id. Deterministic given rng. */
+export function assignSecretRoles(playerIds: string[], rng: () => number = Math.random): Map<string, MafiaRoleId> {
+  const bag = roleBagFor(playerIds.length);
+  for (let i = bag.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [bag[i], bag[j]] = [bag[j]!, bag[i]!];
+  }
+  const map = new Map<string, MafiaRoleId>();
+  playerIds.forEach((id, i) => {
+    map.set(id, bag[i] ?? 'citizen');
+  });
+  return map;
 }
 
 export interface AvatarOption {
@@ -50,72 +64,32 @@ export interface AvatarOption {
   label: string;
 }
 
+/** Public player view. `role` is present on the server only; the server strips
+ *  it for living players before broadcasting (dead players are revealed). */
 export interface PublicPlayer {
   id: string;
   name: string;
   avatar: string;
+  /** Optional linked-account avatar image (Google/Discord). Null when guest. */
+  avatarUrl: string | null;
+  /** Legacy alias kept so older UI code keeps compiling. */
+  image?: string | null;
   color: string;
-  cash: number;
-  position: number;
-  /** Tile indices owned by this player. */
-  properties: number[];
-  inJail: boolean;
-  jailTurns: number;
-  jailCards: number;
-  bankrupt: boolean;
+  /** Linked account provider, if any (never a key — just 'google'|'discord'). */
+  provider?: string;
+  alive: boolean;
   connected: boolean;
   isHost: boolean;
+  /** Server-only secret. Stripped for living players in broadcasts. */
+  role?: MafiaRoleId;
+  /** Who this player voted for today (cleared each day). */
+  votedFor?: string | null;
 }
 
-export type GamePhase = 'lobby' | 'playing' | 'ended';
+export type GamePhase = 'lobby' | 'night' | 'day' | 'ended';
+export type WinnerTeam = 'mafia' | 'citizens' | null;
 
-/** What the current player is expected to do right now. */
-export type Awaiting = 'roll' | 'buy' | 'end-turn' | 'auction';
-
-/** Host-configurable gameplay rules, toggled from the right-hand panel. */
-export interface Rules {
-  /** Doubled base rent when an owner holds a complete colour group. */
-  doubleRentFullSet: boolean;
-  /** No rent is paid while the property's owner is sitting in jail. */
-  rentFreeWhenOwnerInJail: boolean;
-  /** Taxes are banked in a pot won by whoever lands on Free Parking. */
-  freeParkingPot: boolean;
-  /** A declined property goes up for a timed auction open to everyone. */
-  auction: boolean;
-}
-
-export const DEFAULT_RULES: Rules = {
-  doubleRentFullSet: true,
-  rentFreeWhenOwnerInJail: false,
-  freeParkingPot: true,
-  auction: true,
-};
-
-export interface PlayerStats {
-  /** Total rent paid by this player. */
-  rentPaid: number;
-  /** Total rent collected by this player. */
-  rentCollected: number;
-  /** Properties bought (direct purchase or auction win). */
-  buys: number;
-  /** Auctions won. */
-  auctionWins: number;
-  /** Total taxes paid (Income Tax + Luxury Tax). */
-  taxesPaid: number;
-}
-
-/** Live auction for a property nobody wanted to buy outright. */
-export interface AuctionState {
-  tile: number;
-  highestBid: number;
-  highestBidderId: string | null;
-  /** Epoch ms at which bidding closes. */
-  endsAt: number;
-  /** Player ids that have placed at least one bid. */
-  bidders: string[];
-}
-
-export type LogKind = 'info' | 'money' | 'move' | 'card' | 'system' | 'turn';
+export type LogKind = 'info' | 'money' | 'move' | 'card' | 'system' | 'turn' | 'night' | 'day';
 
 export interface LogEntry {
   id: number;
@@ -124,44 +98,60 @@ export interface LogEntry {
   ts: number;
 }
 
+export interface NightActions {
+  /** Mafia chosen kill target (single authoritative entry; last write wins). */
+  killTargetId: string | null;
+  /** Doctor save target. */
+  saveTargetId: string | null;
+  /** Detective investigate target + the result (delivered privately). */
+  investigateTargetId: string | null;
+  /** Sheikh shield target. */
+  shieldTargetId: string | null;
+}
+
 export interface GameState {
   code: string;
   phase: GamePhase;
   players: PublicPlayer[];
-  /** Index into `players` of whoever owns the current turn. */
+  /** Legacy field kept so old rehydration code does not crash. */
   turnIndex: number;
-  /** ownerId[i] = player id that owns tile i, or null when unowned. */
-  ownerId: (string | null)[];
-  dice: [number, number] | null;
-  doublesCount: number;
-  awaiting: Awaiting;
-  /** Tile the current player may buy (set when awaiting === 'buy'). */
-  pendingTile: number | null;
-  /** Plain-language prompt shown above the controls. */
+  dice: null;
+  /** What the client should prompt (kept for compatibility). */
+  awaiting: 'roll' | 'buy' | 'end-turn' | 'auction';
+  pendingTile: null;
   message: string;
   log: LogEntry[];
   winnerId: string | null;
-  lastCard: { deck: 'chance' | 'chest'; text: string } | null;
+  winnerTeam: WinnerTeam;
+  lastCard: null;
   round: number;
   maxPlayers: number;
-  /** Index into the shuffled chance / chest decks. */
   cardCursor: { chance: number; chest: number };
   startedAt: number | null;
   updatedAt: number;
-  /** True when the current player earned an extra roll (doubles). */
-  canRollAgain: boolean;
-  /** Rules active for this room. */
-  rules: Rules;
-  /** Free Parking jackpot accumulated from taxes. */
+  canRollAgain: false;
+  rules: Record<string, unknown>;
   pot: number;
-  /** Set while an auction is running. */
-  auction: AuctionState | null;
-  /** Building level per tile (0 = none, 1-4 = houses, 5 = hotel). Properties only. */
+  auction: null;
   buildings: number[];
-  /** True per tile for mortgaged properties (no rent collected). */
   mortgaged: boolean[];
-  /** Per-player counters for the post-game statistics screen. */
-  stats: Record<string, PlayerStats>;
+  stats: Record<string, unknown>;
+  // ---- mafia fields ----
+  /** Epoch ms when the current night/day phase auto-advances. */
+  phaseEndsAt: number | null;
+  /** Night actions for the current night (null outside night). */
+  night: NightActions | null;
+  /** Votes for the current day (voterId -> targetId). */
+  votes: Record<string, string>;
+  /** Sheikh shield charges remaining (1). */
+  shieldCharges: number;
+  /** Detective findings (private — delivered privately, never broadcast). */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  lastInvestigation?: any;
+  /** Last eliminated player (shown on the day header). */
+  lastEliminated?: { playerId: string; name: string; role: MafiaRoleId } | null;
+  /** One-line recap of last night (shown on the day header). */
+  lastNightSummary?: string | null;
 }
 
 export interface ChatMessage {
@@ -184,7 +174,6 @@ export interface RoomState {
   game: GameState | null;
   players: PublicPlayer[];
   createdAt: number;
-  rules: Rules;
 }
 
 export interface ApiRoomSummary {
@@ -216,7 +205,6 @@ export interface AckResponse<T = unknown> {
   error?: string;
 }
 
-/** Socket.IO acknowledgement callback. */
 export type Ack<T = unknown> = (res: AckResponse<T>) => void;
 
 export interface CreateRoomPayload {
@@ -224,14 +212,12 @@ export interface CreateRoomPayload {
   avatar: string;
   maxPlayers: number;
   roomName?: string;
-  rules?: Partial<Rules>;
 }
 
 export interface JoinRoomPayload {
   code: string;
   name?: string;
   avatar?: string;
-  /** Set when the client already owns a seat in this room (reconnect). */
   playerId?: string;
 }
 
@@ -240,22 +226,25 @@ export interface JoinResult {
   playerId: string;
 }
 
+export interface NightActionPayload {
+  /** Mafia: { kind: 'kill', targetId } | Doctor: { kind: 'save' } | ... */
+  kind: 'kill' | 'save' | 'investigate' | 'shield';
+  targetId: string;
+}
+
+export interface VotePayload {
+  targetId: string;
+}
+
 export const C2S = {
   create: 'room:create',
   join: 'room:join',
   leave: 'room:leave',
   start: 'room:start',
   kick: 'room:kick',
-  rules: 'room:rules',
-  roll: 'game:roll',
-  buy: 'game:buy',
-  pass: 'game:pass',
-  endTurn: 'game:end-turn',
-  bid: 'game:bid',
-  build: 'game:build',
-  sellBuilding: 'game:sell-building',
-  mortgage: 'game:mortgage',
-  unmortgage: 'game:unmortgage',
+  nightAction: 'mafia:night-action',
+  vote: 'mafia:vote',
+  endPhase: 'mafia:end-phase',
   voiceJoin: 'voice:join',
   voiceLeave: 'voice:leave',
   voiceOffer: 'voice:offer',
@@ -269,9 +258,7 @@ export const S2C = {
   chat: 'chat:message',
   error: 'error',
   notice: 'notice',
-  /** Emitted once after a successful join/rejoin so the client can store its id. */
   joined: 'joined',
-  /** PRIVATE unicast: one player's own username + secret role, sent only to that player's socket. */
   privateProfile: 'private:profile',
   voicePeerList: 'voice:peer-list',
   voicePeerJoined: 'voice:peer-joined',
@@ -281,60 +268,34 @@ export const S2C = {
   voiceIce: 'voice:ice',
 } as const;
 
-/* ------------------------- secret roles (private) ------------------------- */
-/**
- * Secret table roles — inspired by the Mafia table artwork (MAFIA, DOCTOR,
- * DETECTIVE, SHEIKH, VILLAGER). Roles are purely identity/immersion for the
- * Estate Empire table; they NEVER affect the property engine, are NEVER stored
- * in GameState / RoomState / snapshots, and NEVER broadcast. The server keeps
- * them in an in-memory map only and delivers each one privately via
- * S2C.privateProfile to the owning socket. The client renders the private
- * overhead label locally for the local player only.
- */
-export type SecretRoleId = 'mafia' | 'godfather' | 'doctor' | 'detective' | 'investigator' | 'sheikh' | 'villager';
-
-export interface SecretRoleDef {
-  id: SecretRoleId;
-  label: string;
-  hint: string;
-  emoji: string;
-  color: string;
-}
-
-export const SECRET_ROLES: Record<SecretRoleId, SecretRoleDef> = {
-  godfather: { id: 'godfather', label: 'Godfather', hint: 'Leads the family in the shadows', emoji: '👑', color: '#a855f7' },
-  mafia: { id: 'mafia', label: 'Mafia', hint: 'Eliminate in silence', emoji: '🥀', color: '#ef4444' },
-  doctor: { id: 'doctor', label: 'Doctor', hint: 'Protect a player', emoji: '✚', color: '#22c55e' },
-  detective: { id: 'detective', label: 'Detective', hint: 'Investigate a player', emoji: '🔍', color: '#38bdf8' },
-  investigator: { id: 'investigator', label: 'Investigator', hint: 'Uncover the truth', emoji: '🔎', color: '#facc15' },
-  sheikh: { id: 'sheikh', label: 'Sheikh', hint: 'Use your special power', emoji: '🕌', color: '#a855f7' },
-  villager: { id: 'villager', label: 'Villager', hint: 'Find the Mafia', emoji: '👥', color: '#22c55e' },
-};
-
-/** Role bag for up to 10 players: Godfather, Mafia, Doctor, Detective, Investigator, Sheikh + 4 Villagers. */
-export function roleBagFor(count: number): SecretRoleId[] {
-  const bag: SecretRoleId[] = ['godfather', 'mafia', 'doctor', 'detective', 'investigator', 'sheikh', 'villager', 'villager', 'villager', 'villager'];
-  return bag.slice(0, Math.min(count, bag.length));
-}
-
-/** Shuffle + assign one secret role per player id. Deterministic given rng. */
-export function assignSecretRoles(playerIds: string[], rng: () => number = Math.random): Map<string, SecretRoleId> {
-  const bag = roleBagFor(playerIds.length);
-  for (let i = bag.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    [bag[i], bag[j]] = [bag[j]!, bag[i]!];
-  }
-  const map = new Map<string, SecretRoleId>();
-  playerIds.forEach((id, i) => {
-    map.set(id, bag[i] ?? 'villager');
-  });
-  return map;
-}
-
 /** Private overhead profile — delivered only to the owning player. */
 export interface PrivateProfile {
   playerId: string;
   username: string;
-  role: SecretRoleId | null;
+  role: MafiaRoleId | null;
   seat: number;
+  /** Latest detective finding (private to the detective). */
+  investigation?: { targetName: string; isMafia: boolean } | null;
+  /** One-line night recap for the owner (death/save/blocked). */
+  lastNight?: string | null;
+}
+
+/** Signed-in user (Google / Discord / guest) — from server /auth/me. */
+export interface AuthUser {
+  id: string;
+  name: string;
+  email: string | null;
+  image: string | null;
+  discordImage: string | null;
+  provider: 'google' | 'discord' | 'guest';
+}
+
+/** Linked account identity (Google / Discord). Keys live in server env only. */
+export interface LinkedAccount {
+  playerId: string;
+  provider: 'google' | 'discord';
+  providerSub: string;
+  email: string | null;
+  displayName: string | null;
+  avatarUrl: string | null;
 }

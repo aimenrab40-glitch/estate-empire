@@ -1,8 +1,10 @@
-# 🎲 Estate Empire
+# 🥀 SUPER NOVA — Mafia
 
-A real-time multiplayer property-trading board game for the browser — inspired by Richup.io —
-built with **React + TypeScript**, **Node.js + Express**, **Socket.IO**, **PostgreSQL** and
-**Tailwind CSS**.
+A real-time multiplayer **Mafia** social-deduction game for the browser —
+secret roles, night kills/saves/investigations, day discussion and voting,
+a 3D table with seated characters, plus optional Google/Discord sign-in.
+Built with **React + TypeScript**, **Node.js + Express**, **Socket.IO**,
+**PostgreSQL** and **Tailwind CSS**.
 
 ---
 

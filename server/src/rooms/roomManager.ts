@@ -1,28 +1,6 @@
-import {
-  createGame,
-  createPlayer,
-  rehydrateGame,
-  startGame,
-  closeRestoredAuction,
-  GameError,
-} from '../game/engine.js';
+import { createGame, createPlayer, rehydrateGame, startGame, GameError } from '../game/engine.js';
 import type { GameContext } from '../game/engine.js';
-import type { ChatMessage, PrivateProfile, PublicPlayer, RoomState, SecretRoleId } from '../../../shared/src/types.js';
-import { DEFAULT_RULES, assignSecretRoles, type Rules } from '../../../shared/src/types.js';
-import { emojiFor } from '../../../shared/src/avatars.js';
-import { MIN_PLAYERS, MAX_PLAYERS } from '../../../shared/src/board.js';
-import {
-  db,
-} from '../db/pool.js';
-import {
-  getGameContext,
-  getStoredRoom,
-  listChat,
-  persistGameContext,
-  persistGameState,
-  persistPlayer,
-  persistRoom,
-} from '../db/repo.js';
+import type { ChatMessage, PrivateProfile, PublicPlayer, RoomState } from '../../../shared/src/types.js';
 
 export interface Room {
   code: string;
@@ -33,68 +11,32 @@ export interface Room {
   game: GameContext;
   chat: ChatMessage[];
   createdAt: number;
-  /** Set when the room was rebuilt from PostgreSQL after a restart (not persisted). */
   restoredAt?: number;
 }
 
 const rooms = new Map<string, Room>();
 
-/**
- * PRIVATE secret roles — in-memory only. Never written to GameState, RoomState,
- * game_snapshots, or any broadcast. Delivered by the socket layer via unicast
- * private:profile events. Cleared when the room is destroyed/swept.
- */
-const privateRoles = new Map<string, Map<string, SecretRoleId>>();
-
-export function getPrivateRole(code: string, playerId: string): SecretRoleId | null {
-  return privateRoles.get(normalizeCode(code))?.get(playerId) ?? null;
-}
-
 export function getPrivateProfile(code: string, playerId: string): PrivateProfile | null {
-  const normalized = normalizeCode(code);
-  const room = rooms.get(normalized);
+  const room = rooms.get(normalizeCode(code));
   if (!room) return null;
   const seat = room.game.state.players.findIndex((p) => p.id === playerId);
   if (seat === -1) return null;
   const player = room.game.state.players[seat]!;
-  return {
-    playerId,
-    username: player.name,
-    role: privateRoles.get(normalized)?.get(playerId) ?? null,
-    seat,
-  };
+  return { playerId, username: player.name, role: player.role ?? null, seat };
 }
 
-export function assignPrivateRoles(room: Room): void {
-  const ids = room.game.state.players.map((p) => p.id);
-  privateRoles.set(room.code, assignSecretRoles(ids));
+export function assignPrivateRoles(_room: Room): void {}
+export function clearPrivateRoles(_code: string): void {}
+export function getPrivateRole(_code: string, _playerId: string): null {
+  return null;
 }
-
-export function clearPrivateRoles(code: string): void {
-  privateRoles.delete(normalizeCode(code));
-}
-
-const COLORS = [
-  '#ef4444',
-  '#3b82f6',
-  '#22c55e',
-  '#eab308',
-  '#a855f7',
-  '#ec4899',
-  '#14b8a6',
-  '#f97316',
-  '#0ea5e9',
-  '#84cc16',
-];
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 export function generateCode(): string {
   for (let attempt = 0; attempt < 50; attempt++) {
     let code = '';
-    for (let i = 0; i < 6; i++) {
-      code += CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)];
-    }
+    for (let i = 0; i < 6; i++) code += CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)];
     if (!rooms.has(code)) return code;
   }
   throw new GameError('Could not allocate a room code, please retry.');
@@ -111,10 +53,7 @@ export function listRooms(): Room[] {
 }
 
 export function sanitizeName(raw: unknown, fallback: string): string {
-  const name = String(raw ?? '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 20);
+  const name = String(raw ?? '').replace(/\s+/g, ' ').trim().slice(0, 20);
   return name || fallback;
 }
 
@@ -123,27 +62,27 @@ export function sanitizeAvatar(raw: unknown): string {
   return avatar || 'tophat';
 }
 
+export function sanitizeImage(raw: unknown): string | null {
+  const v = String(raw ?? '').trim();
+  if (!v || v.length > 2048) return null;
+  return /^https:\/\//i.test(v) || v.startsWith('/') ? v : null;
+}
+
 export interface CreateRoomInput {
   name: string;
   avatar: string;
   maxPlayers: number;
   roomName?: string;
-  rules?: Partial<Rules>;
+  userId?: string;
+  image?: string | null;
 }
 
 export function createRoom(input: CreateRoomInput): { room: Room; playerId: string } {
   const code = generateCode();
-  const playerId = crypto.randomUUID();
+  const playerId = input.userId ?? crypto.randomUUID();
   const name = sanitizeName(input.name, 'Player 1');
-  const max = Math.min(MAX_PLAYERS, Math.max(MIN_PLAYERS, Number(input.maxPlayers) || 6));
-
-  const game = createGame(
-    code,
-    [{ id: playerId, name, avatar: sanitizeAvatar(input.avatar), isHost: true }],
-    max,
-    { ...DEFAULT_RULES, ...input.rules },
-  );
-
+  const max = Math.min(10, Math.max(2, Number(input.maxPlayers) || 4));
+  const game = createGame(code, [{ id: playerId, name, avatar: sanitizeAvatar(input.avatar), isHost: true }], max);
   const room: Room = {
     code,
     name: sanitizeName(input.roomName, `${name}'s table`),
@@ -158,53 +97,37 @@ export function createRoom(input: CreateRoomInput): { room: Room; playerId: stri
   return { room, playerId };
 }
 
-/** Rebuild one room from PostgreSQL (used by boot restore and lazy rejoin). */
 export async function restoreRoomFromDb(codeRaw: string): Promise<Room | null> {
   const code = normalizeCode(codeRaw);
   const existing = rooms.get(code);
   if (existing) return existing;
-
+  const { getStoredRoom, getGameContext, listChat } = await import('../db/repo.js');
   const stored = await getStoredRoom(code);
   if (!stored) return null;
   const persisted = await getGameContext(code);
   if (!persisted) return null;
-
-  const game = rehydrateGame(persisted.state, persisted.chanceDeck, persisted.chestDeck);
-  // If an auction was open when the server stopped, close it now — the highest
-  // bid stands — so the game can never deadlock on a stale timer.
-  const settled = closeRestoredAuction(game);
+  const game = rehydrateGame(persisted.state);
   const chat = await listChat(code, 50).catch(() => [] as ChatMessage[]);
-
   const room: Room = {
     code,
     name: stored.name,
     maxPlayers: stored.maxPlayers,
     hostId: stored.hostId,
     status: stored.status as 'lobby' | 'playing' | 'finished',
-    game: settled,
+    game,
     chat,
     createdAt: stored.createdAt.getTime(),
     restoredAt: Date.now(),
   };
   rooms.set(code, room);
-  // Secret roles are ephemeral — re-assign fresh ones for a restored live game
-  // (they were never persisted so they cannot be recovered, and never leak).
-  if (room.status === 'playing') assignPrivateRoles(room);
-  if (settled !== game) {
-    await persistGameContext(code, settled.state, settled.chanceDeck, settled.chestDeck).catch(
-      () => undefined,
-    );
-  }
   return room;
 }
 
-/** Restore every unfinished room (lobby or playing) into memory. Called at boot. */
 export async function restoreActiveRooms(): Promise<number> {
-  if (db.mode === 'memory') return 0;
   try {
-    const res = await db.query<{ code: string }>(
-      `SELECT code FROM rooms WHERE status IN ('lobby', 'playing') ORDER BY created_at`,
-    );
+    const { db } = await import('../db/pool.js');
+    if (db.mode === 'memory') return 0;
+    const res = await db.query<{ code: string }>(`SELECT code FROM rooms WHERE status IN ('lobby', 'playing') ORDER BY created_at`);
     let restored = 0;
     for (const row of res.rows) {
       const room = await restoreRoomFromDb(row.code);
@@ -219,59 +142,44 @@ export async function restoreActiveRooms(): Promise<number> {
 
 export async function joinRoom(
   codeRaw: string,
-  opts: { name?: string; avatar?: string; playerId?: string },
+  opts: { name?: string; avatar?: string; playerId?: string; userId?: string; avatarUrl?: string; image?: string | null },
 ): Promise<{ room: Room; playerId: string; reconnected: boolean }> {
   const code = normalizeCode(codeRaw);
   let room = rooms.get(code);
-
   if (!room) {
-    // --- server restart recovery: rebuild the room from PostgreSQL -------------
     room = (await restoreRoomFromDb(code)) ?? undefined;
     if (!room) throw new GameError('Room not found. Check the invite code.');
   }
-
   const state = room.game.state;
+  const wantedId = opts.playerId ?? opts.userId;
 
-  // Reconnect of an existing seat
-  if (opts.playerId) {
-    const existing = state.players.find((p) => p.id === opts.playerId);
+  if (wantedId) {
+    const existing = state.players.find((p) => p.id === wantedId);
     if (existing) {
       existing.connected = true;
+      const img = opts.avatarUrl ?? opts.image;
+      if (img) existing.avatarUrl = img;
       return { room, playerId: existing.id, reconnected: true };
     }
   }
 
   if (room.status === 'finished') throw new GameError('This match has already finished.');
-  if (state.phase !== 'lobby') {
-    throw new GameError('This match is already in progress — only existing players can rejoin.');
-  }
+  if (state.phase !== 'lobby') throw new GameError('This match is already in progress — only existing players can rejoin.');
   if (state.players.length >= room.maxPlayers) throw new GameError('This room is full.');
 
-  const playerId = crypto.randomUUID();
+  const playerId = wantedId ?? crypto.randomUUID();
   const seat = state.players.length;
-  const player = createPlayer(
-    playerId,
-    sanitizeName(opts.name, `Player ${seat + 1}`),
-    sanitizeAvatar(opts.avatar),
-    seat,
-    seat === 0,
-  );
-  player.color = COLORS[seat % COLORS.length];
+  const player = createPlayer(playerId, sanitizeName(opts.name, `Player ${seat + 1}`), sanitizeAvatar(opts.avatar), opts.avatarUrl ?? opts.image ?? null, seat, seat === 0);
   state.players.push(player);
   state.message = `${player.name} joined the table.`;
+
+  const { persistRoom, persistPlayer, persistGameState } = await import('../db/repo.js');
   await persistRoom(room.code, room.name, room.maxPlayers, room.hostId, 'lobby');
-  await persistPlayer(room.code, {
-    id: player.id,
-    name: player.name,
-    avatar: player.avatar,
-    color: player.color,
-    seat,
-  });
+  await persistPlayer(room.code, { id: player.id, name: player.name, avatar: player.avatar, image: player.avatarUrl ?? null, color: player.color, seat });
   await persistGameState(room.game.state);
   return { room, playerId, reconnected: false };
 }
 
-/** Remove a player. During a match they are eliminated instead of deleted. */
 export function leaveRoom(codeRaw: string, playerId: string): Room | undefined {
   const room = getRoom(codeRaw);
   if (!room) return undefined;
@@ -279,19 +187,15 @@ export function leaveRoom(codeRaw: string, playerId: string): Room | undefined {
   const idx = state.players.findIndex((p) => p.id === playerId);
   if (idx === -1) return room;
 
-  if (state.phase === 'playing') {
-    // Mid-match the seat is eliminated so turn order stays consistent.
+  if (state.phase !== 'lobby') {
     const p = state.players[idx];
     p.connected = false;
-    p.bankrupt = true;
-    for (const t of p.properties) if (state.ownerId[t] === p.id) state.ownerId[t] = null;
-    p.properties = [];
-    p.cash = 0;
-    const left = state.players.filter((x) => !x.bankrupt);
-    if (left.length <= 1) {
-      state.phase = 'ended';
-      state.winnerId = left[0]?.id ?? null;
-      state.message = left[0] ? `🏆 ${left[0].name} wins the game!` : 'Game over.';
+    if (room.hostId === playerId) {
+      const next = state.players.find((x) => x.alive && x.connected) ?? state.players.find((x) => x.alive);
+      if (next) {
+        room.hostId = next.id;
+        state.players.forEach((x) => (x.isHost = x.id === next.id));
+      }
     }
     return room;
   }
@@ -299,19 +203,15 @@ export function leaveRoom(codeRaw: string, playerId: string): Room | undefined {
   state.players.splice(idx, 1);
   if (state.players.length === 0) {
     rooms.delete(room.code);
-    clearPrivateRoles(room.code);
     return undefined;
   }
-  if (room.hostId === playerId) {
-    room.hostId = state.players[0].id;
-  }
+  if (room.hostId === playerId) room.hostId = state.players[0].id;
   state.players.forEach((p) => (p.isHost = p.id === room.hostId));
   return room;
 }
 
 export function destroyRoom(code: string) {
   rooms.delete(normalizeCode(code));
-  clearPrivateRoles(code);
 }
 
 export function startRoomGame(code: string, byPlayerId: string): Room {
@@ -319,8 +219,6 @@ export function startRoomGame(code: string, byPlayerId: string): Room {
   if (!room) throw new GameError('Room not found.');
   room.game = startGame(room.game, byPlayerId);
   room.status = 'playing';
-  // Assign secret roles now — kept private (unicast only), never broadcast.
-  assignPrivateRoles(room);
   return room;
 }
 
@@ -333,16 +231,22 @@ export function markFinished(room: Room): boolean {
 }
 
 export function toRoomState(room: Room): RoomState {
+  const s = structuredClone(room.game.state);
+  for (const p of s.players) {
+    if (p.alive) delete p.role;
+    // Dead roles are revealed in the log text, not the player record.
+    else delete p.role;
+  }
+  if (s.phase === 'night') s.night = null;
   return {
     code: room.code,
     name: room.name,
     maxPlayers: room.maxPlayers,
     hostId: room.hostId,
     status: room.status,
-    game: room.game.state,
-    players: room.game.state.players,
+    game: s,
+    players: s.players,
     createdAt: room.createdAt,
-    rules: room.game.state.rules,
   };
 }
 
@@ -351,7 +255,7 @@ export function pushChat(room: Room, player: PublicPlayer, text: string): ChatMe
     id: crypto.randomUUID(),
     playerId: player.id,
     name: player.name,
-    avatar: player.avatar || emojiFor('tophat'),
+    avatar: player.avatar || 'tophat',
     color: player.color,
     text: text.slice(0, 300),
     ts: Date.now(),
@@ -361,17 +265,14 @@ export function pushChat(room: Room, player: PublicPlayer, text: string): ChatMe
   return msg;
 }
 
-/** Drop empty idle rooms (no connected player) after 10 minutes. */
 export function sweepIdleRooms(): number {
   const now = Date.now();
   let removed = 0;
   for (const room of [...rooms.values()]) {
     const anyConnected = room.game.state.players.some((p) => p.connected);
-    // A freshly restored room is not "idle" just because it was created long ago.
     const basis = Math.max(room.createdAt, room.restoredAt ?? 0);
     if (!anyConnected && now - basis > 10 * 60_000) {
       rooms.delete(room.code);
-      clearPrivateRoles(room.code);
       removed++;
     }
   }

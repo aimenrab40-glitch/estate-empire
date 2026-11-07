@@ -22,8 +22,8 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV REQUIRE_DB=1
-# Render injects PORT (default 10000); fall back to 4000 locally.
-ENV PORT=4000
+# Hosts inject PORT (Render 10000, HF Spaces 7860); fall back to Spaces' 7860.
+ENV PORT=7860
 ENV EMBEDDED_PG=0
 
 COPY package.json package-lock.json ./
@@ -33,5 +33,5 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/server/dist ./server/dist
 COPY --from=builder /app/client/dist ./client/dist
 
-EXPOSE 4000
+EXPOSE 7860
 CMD ["node", "server/dist/server/src/index.js"]

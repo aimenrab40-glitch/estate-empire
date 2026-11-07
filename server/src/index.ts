@@ -7,6 +7,7 @@ import { Server } from 'socket.io';
 import { config } from './config.js';
 import { initDb, shutdownDb, db } from './db/pool.js';
 import { getRoomSummary, getSnapshot, listEvents, listHistory } from './db/repo.js';
+import { registerAuth, compatMode, findUserByToken, googleConfigured, discordConfigured } from './db/auth.js';
 import { registerSocketHandlers } from './socket/handlers.js';
 import { getRoom, listRooms, restoreActiveRooms, sweepIdleRooms, toRoomState } from './rooms/roomManager.js';
 
@@ -21,10 +22,14 @@ app.use((_req, res, next) => {
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   next();
 });
-app.use(cors());
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '256kb' }));
 
 const startedAt = Date.now();
+
+/* ---------------------------------- auth ---------------------------------- */
+
+registerAuth(app);
 
 /* ---------------------------------- REST ---------------------------------- */
 
@@ -34,7 +39,7 @@ app.get('/api/health', (_req, res) => {
     db: db.mode,
     uptimeSec: Math.round((Date.now() - startedAt) / 1000),
     rooms: listRooms().length,
-    version: '1.1.0',
+    version: '2.0.0',
   });
 });
 
@@ -49,7 +54,9 @@ app.get('/api/rooms', (_req, res) => {
       players: r.game.state.players.map((p) => ({
         name: p.name,
         avatar: p.avatar,
+        image: p.avatarUrl ?? null,
         color: p.color,
+        alive: p.alive,
       })),
       createdAt: new Date(r.createdAt).toISOString(),
     })),
@@ -67,7 +74,7 @@ app.get('/api/rooms/:code', async (req, res) => {
       status: s.status,
       maxPlayers: s.maxPlayers,
       playerCount: s.players.length,
-      players: s.players.map((p) => ({ name: p.name, avatar: p.avatar, color: p.color })),
+      players: s.players.map((p) => ({ name: p.name, avatar: p.avatar, image: p.avatarUrl ?? null, color: p.color, alive: p.alive })),
       createdAt: new Date(s.createdAt).toISOString(),
       live: true,
     });
@@ -107,7 +114,7 @@ const distIndex = path.join(config.clientDist, 'index.html');
 if (fs.existsSync(distIndex)) {
   app.use(express.static(config.clientDist));
   app.use((req, res, next) => {
-    if (req.method !== 'GET' || req.path.startsWith('/api') || req.path.startsWith('/socket.io')) {
+    if (req.method !== 'GET' || req.path.startsWith('/api') || req.path.startsWith('/socket.io') || req.path.startsWith('/auth')) {
       return next();
     }
     res.sendFile(distIndex);
@@ -119,9 +126,55 @@ if (fs.existsSync(distIndex)) {
 
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: true, methods: ['GET', 'POST'] },
+  cors: { origin: true, methods: ['GET', 'POST'], credentials: true },
   pingTimeout: 20_000,
   pingInterval: 10_000,
+});
+
+// Authenticated sockets: attach the signed-in user so every room action is
+// bound to a real Google/Discord account. In compat mode (local testing),
+// anonymous sockets are allowed with a guest id from the client payload.
+io.use(async (socket, next) => {
+  const handshake = socket.handshake;
+  const cookieHeader = handshake.headers.cookie ?? '';
+  const cookies: Record<string, string> = {};
+  for (const part of cookieHeader.split(';')) {
+    const idx = part.indexOf('=');
+    if (idx === -1) continue;
+    const k = part.slice(0, idx).trim();
+    if (k) cookies[k] = decodeURIComponent(part.slice(idx + 1).trim());
+  }
+  const token = cookies['supernova_session'];
+  const user = await findUserByToken(token);
+  if (user) {
+    socket.data.userId = user.id;
+    socket.data.userName = user.name;
+    socket.data.userImage = user.image;
+    socket.data.userAvatar = undefined;
+    next();
+    return;
+  }
+  if (compatMode()) {
+    // Local testing only (NO_AUTH=1, never in production): the client sends a
+    // guest user id in handshake auth so rooms can be exercised locally.
+    const guestId = typeof handshake.auth?.userId === 'string' ? handshake.auth.userId : undefined;
+    if (guestId) {
+      socket.data.userId = guestId;
+      socket.data.userName = typeof handshake.auth?.userName === 'string' ? handshake.auth.userName : undefined;
+      socket.data.userImage = typeof handshake.auth?.userImage === 'string' ? handshake.auth.userImage : null;
+    }
+    next();
+    return;
+  }
+  // Guest play stays available until OAuth keys are actually configured, so the
+  // game never hard-locks people out. Once a provider is configured in
+  // production, sign-in becomes mandatory.
+  const oauthConfigured = googleConfigured() || discordConfigured();
+  if (!config.isProd || !oauthConfigured) {
+    next();
+    return;
+  }
+  next(new Error('Not authenticated — please sign in.'));
 });
 
 registerSocketHandlers(io);
@@ -148,7 +201,7 @@ async function main() {
 
   server.listen(config.port, '0.0.0.0', () => {
     console.log('');
-    console.log('  🎲 Estate Empire server is up');
+    console.log('  🎲 SUPER NOVA Mafia server is up');
     console.log(`     listening on 0.0.0.0:${config.port}`);
     console.log(`     public URL      : ${process.env.RENDER_EXTERNAL_URL ?? 'http://localhost:' + config.port}`);
     console.log(`     Health check     : /api/health`);
