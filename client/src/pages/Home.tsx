@@ -277,7 +277,7 @@ export default function Home() {
           </button>
 
           <p className="mt-3 text-center text-[11px] text-slate-500">
-            Everyone starts with <b className="text-emerald-300">$1500</b>. Host controls the house
+            Everyone starts with <b className="text-emerald-300">$1,500</b>. Host controls the house
             rules inside the room.
           </p>
         </section>

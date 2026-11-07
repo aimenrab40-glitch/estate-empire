@@ -24,7 +24,7 @@ export default function PlayerList({
   speaking = new Set(),
 }: PlayerListProps) {
   return (
-    <ul className="flex flex-col gap-2">
+    <ul className="flex max-h-72 flex-col gap-2 overflow-y-auto pr-1">
       {players.map((p, i) => {
         const isTurn = i === turnIndex && !p.bankrupt;
         const holdings = ownerId.filter((o) => o === p.id).length;
@@ -77,7 +77,7 @@ export default function PlayerList({
 
             <div className="text-right">
               <div className={`font-black tabular-nums ${p.bankrupt ? 'text-rose-400 line-through' : 'text-emerald-300'}`}>
-                ${p.cash}
+                ${p.cash.toLocaleString('en-US')}
               </div>
               {canKick && !p.isHost && p.id !== meId && onKick && (
                 <button

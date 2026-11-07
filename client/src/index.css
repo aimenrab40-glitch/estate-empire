@@ -730,7 +730,8 @@
 }
 .mafia-3d-canvas {
   width: 100%;
-  height: 560px;
+  height: min(560px, 55dvh);
+  min-height: 320px;
   cursor: grab;
   background: radial-gradient(ellipse at 50% 28%, #1a0d10 0%, #060405 62%);
 }
@@ -842,7 +843,7 @@
   border-radius: 10px;
   padding: 8px 14px;
   z-index: 7;
-  max-width: 46%;
+  max-width: 36%;
   box-shadow: 0 0 24px rgba(255,26,26,0.22);
 }
 .mafia-welcome-hat { font-size: 24px; }
@@ -867,8 +868,15 @@
 .mafia-your-role b { font-size: 18px; letter-spacing: 0.04em; }
 .mafia-your-role p { margin: 0; color: #a8a29e; font-size: 10px; line-height: 1.4; }
 .mafia-your-role-ico { font-size: 30px; }
+/* Short landscape screens (phones held sideways): keep the 3D HUD out of the way */
+@media (max-height: 520px) {
+  .mafia-your-role, .mafia-crown-card { display: none; }
+  .mafia-welcome { max-width: 52%; padding: 6px 10px; }
+  .mafia-3d-canvas { height: 60dvh; min-height: 260px; }
+  .mafia-hud-top { padding: 6px 8px; }
+}
 @media (max-width: 760px) {
-  .mafia-3d-canvas { height: 380px; }
+  .mafia-3d-canvas { height: 55dvh; min-height: 280px; }
   .mafia-your-role, .mafia-crown-card { display: none; }
   .mafia-welcome { max-width: calc(100% - 24px); }
 }

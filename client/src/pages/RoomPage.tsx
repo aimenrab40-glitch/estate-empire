@@ -172,21 +172,19 @@ export default function RoomPage() {
             <section className="panel p-4">
               <div className="mb-3">
                 <div className="text-xs uppercase tracking-[0.3em] text-slate-400">Invite link</div>
-                <div className="flex gap-2 mt-1">
-                  <input
-                    className="input flex-1 text-[11px] font-mono tracking-widest uppercase"
-                    value={inviteUrl}
-                    readOnly
-                  />
-                  <button
-                    className="btn btn-primary px-3"
-                    disabled={s.busy || !s.connected}
-                    onClick={copyCode}
-                    title="Copy invite link"
-                  >
-                    {copied ? 'copied ✓' : 'copy'}
-                  </button>
+                <div className="mt-2 rounded-xl border border-slate-600/50 bg-black/40 px-3 py-2">
+                  <div className="break-all font-mono text-[11px] leading-relaxed text-slate-100">
+                    {inviteUrl}
+                  </div>
                 </div>
+                <button
+                  className="btn btn-primary mt-2 w-full py-2.5"
+                  disabled={s.busy || !s.connected}
+                  onClick={copyCode}
+                  title="Copy invite link"
+                >
+                  {copied ? 'copied ✓' : '📋 Copy invite link'}
+                </button>
                 <div className="mt-1 text-[10px] text-slate-500">
                   Send this to friends — anyone with the link can join the table.
                 </div>
@@ -198,8 +196,17 @@ export default function RoomPage() {
                   </span>
                   <span className="text-xs text-slate-500">{room.players.length}/{room.maxPlayers}</span>
                 </div>
-                <div className="font-mono text-3xl font-black tracking-[0.35em] text-gold-2 break-all">
-                  {room.code}
+                <div className="mb-2 flex items-center gap-2">
+                  <div className="font-mono text-3xl font-black tracking-[0.35em] text-gold-2 break-all">
+                    {room.code}
+                  </div>
+                  <button
+                    className="btn btn-ghost shrink-0 !px-2.5 !py-1 text-[11px]"
+                    onClick={copyCode}
+                    title="Copy room code"
+                  >
+                    {copied ? 'copied ✓' : '📄'}
+                  </button>
                 </div>
                 <div className="mt-1 text-[10px] text-slate-500">
                   {enoughPlayers ? 'Ready to start' : 'Waiting for at least 2 players…'}
@@ -295,6 +302,8 @@ export default function RoomPage() {
               />
             </section>
 
+            <VoiceChat state={voice} players={game.players} meId={meId} />
+
             <section className="panel p-3">
               <h3 className="mb-2 text-xs font-black uppercase tracking-wide text-slate-400">
                 Table host
@@ -333,8 +342,6 @@ export default function RoomPage() {
                 ))}
               </div>
             </section>
-
-            <VoiceChat state={voice} players={game.players} meId={meId} />
           </aside>
         </div>
       </div>
@@ -358,21 +365,19 @@ export default function RoomPage() {
           <section className="panel p-4">
             <div className="mb-3">
               <div className="text-xs uppercase tracking-[0.3em] text-slate-400">Invite link</div>
-              <div className="flex gap-2 mt-1">
-                <input
-                  className="input flex-1 text-[11px] font-mono tracking-widest uppercase"
-                  value={inviteUrl}
-                  readOnly
-                />
-                <button
-                  className="btn btn-primary px-3"
-                  disabled={s.busy || !s.connected}
-                  onClick={copyCode}
-                  title="Copy invite link"
-                >
-                  {copied ? 'copied ✓' : 'copy'}
-                </button>
+              <div className="mt-2 rounded-xl border border-slate-600/50 bg-black/40 px-3 py-2">
+                <div className="break-all font-mono text-[11px] leading-relaxed text-slate-100">
+                  {inviteUrl}
+                </div>
               </div>
+              <button
+                className="btn btn-primary mt-2 w-full py-2.5"
+                disabled={s.busy || !s.connected}
+                onClick={copyCode}
+                title="Copy invite link"
+              >
+                {copied ? 'copied ✓' : '📋 Copy invite link'}
+              </button>
               <div className="mt-1 text-[10px] text-slate-500">
                 Anyone with this link can join the table in real time.
               </div>
@@ -393,7 +398,7 @@ export default function RoomPage() {
                   onClick={copyCode}
                   title="Copy room code"
                 >
-                  {copied ? 'copied ✓' : '📄 Copy'}
+                  {copied ? 'copied ✓' : '📄'}
                 </button>
               </div>
             </div>
